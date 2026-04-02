@@ -1,5 +1,5 @@
 /**
- * FINTRACKER - Unified Bank, Credit & Budget Dashboard
+ * FINTRACKER - Unified Bank, Credit, Budget & Transfers Dashboard
  */
 
 // --- DATA MANAGEMENT ---
@@ -51,7 +51,6 @@ async function syncToCloud() {
     statusEl.className = 'sync-status';
     statusEl.innerHTML = '<span class="dot"></span> Syncing...';
     showLoader("Cloud Syncing...");
-    
     try {
         const payload = { transactions, accounts, budgetPlans };
         await fetch(backendUrl, {
@@ -99,16 +98,20 @@ async function loadFromCloud() {
     return false;
 }
 
-// --- CORE UTILS ---
+// --- LOGIC ---
 const formatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
 function calculateAccountBalances() {
     const balances = {};
     accounts.forEach(acc => balances[acc.id] = parseFloat(acc.balance) || 0);
     transactions.forEach(tx => {
-        if (balances[tx.accountId] !== undefined) {
-            if (tx.type === 'income') balances[tx.accountId] += tx.amount;
-            else balances[tx.accountId] -= tx.amount;
+        if (tx.type === 'income') {
+            if (balances[tx.accountId] !== undefined) balances[tx.accountId] += tx.amount;
+        } else if (tx.type === 'expense') {
+            if (balances[tx.accountId] !== undefined) balances[tx.accountId] -= tx.amount;
+        } else if (tx.type === 'transfer') {
+            if (balances[tx.accountId] !== undefined) balances[tx.accountId] -= tx.amount;
+            if (balances[tx.toAccountId] !== undefined) balances[tx.toAccountId] += tx.amount;
         }
     });
     return balances;
@@ -134,7 +137,7 @@ function updateUI() {
     const mKey = getMonthKey(currentViewDate);
     document.getElementById('current-budget-month').innerText = currentViewDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
-    // Summary
+    // Summary - TRANSFERS are excluded from Spending total
     const netWorth = Object.values(balances).reduce((a, b) => a + b, 0);
     const totalSpent = transactions
         .filter(tx => tx.type === 'expense' && getMonthKey(new Date(tx.date)) === getMonthKey(now))
@@ -154,54 +157,29 @@ function updateUI() {
     renderLedger();
     updateDropdowns();
 
-    // RESTORE CREDIT CARD CYCLE LOGIC
+    // Credit Card Cycle
     const cc = accounts.find(a => a.type === 'credit');
     const cycleSection = document.getElementById('card-cycle-section');
-    if (cc) {
-        cycleSection.classList.remove('hidden');
-        updateCreditCycleInfo(cc);
-    } else {
-        cycleSection.classList.add('hidden');
-    }
+    if (cc) { cycleSection.classList.remove('hidden'); updateCreditCycleInfo(cc); }
+    else { cycleSection.classList.add('hidden'); }
 }
 
 function updateCreditCycleInfo(cc) {
-    const now = new Date();
-    const today = now.getDate();
-    const bDay = cc.billingDay || 20;
-
-    // 1. Calculate Next Statement Date
+    const now = new Date(); const today = now.getDate(); const bDay = cc.billingDay || 20;
     let statementDate = new Date(now.getFullYear(), now.getMonth() + (today > bDay ? 1 : 0), bDay);
-    
-    // 2. Determine Zone
-    let zone = { id: 'safe', badge: 'SAFE ZONE', title: 'Safe Spending', desc: 'Ideal for large purchases. Interest-free period is maximized.', class: 'badge-safe', color: '#4ade80' };
-    if (today >= 11 && today <= 15) {
-        zone = { id: 'warning', badge: 'CAUTION ZONE', title: 'Window Shrinking', desc: 'Interest-free period is decreasing. Avoid large non-essentials.', class: 'badge-warning', color: '#facc15' };
-    } else if (today >= 16 && today <= 20) {
-        zone = { id: 'danger', badge: 'RISK ZONE', title: 'Critical Period', desc: 'Short interest-free window (~20 days). Wait until next statement if possible!', class: 'badge-danger', color: '#f87171' };
-    }
-    if (today >= 2 && today <= 5) {
-        zone.title = "💳 Payment Window!";
-        zone.desc = "Salary received! Clear your outstanding balance now to avoid fees.";
-    }
-
-    // 3. UI Sync
+    let zone = { badge: 'SAFE ZONE', title: 'Safe Spending', desc: 'Ideal for large purchases.', class: 'badge-safe', color: '#4ade80' };
+    if (today >= 11 && today <= 15) zone = { badge: 'CAUTION ZONE', title: 'Window Shrinking', desc: 'Interest-free period is decreasing.', class: 'badge-warning', color: '#facc15' };
+    else if (today >= 16 && today <= 20) zone = { badge: 'RISK ZONE', title: 'Critical Period', desc: 'Wait until next statement if possible!', class: 'badge-danger', color: '#f87171' };
+    if (today >= 2 && today <= 5) { zone.title = "💳 Payment Window!"; zone.desc = "Salary received! Clear balance now."; }
     document.getElementById('cycle-account-name').innerText = `${cc.name.toUpperCase()} CYCLE`;
     document.getElementById('zone-badge').innerText = zone.badge;
     document.getElementById('zone-badge').className = `badge ${zone.class}`;
     document.getElementById('zone-title').innerText = zone.title;
     document.getElementById('zone-description').innerText = zone.desc;
     document.getElementById('days-remaining').innerText = `${Math.ceil((statementDate - now) / 86400000)} days left`;
-    
-    // Progress fill accurate calc
-    const prevStatement = new Date(statementDate.getTime());
-    prevStatement.setMonth(prevStatement.getMonth() - 1);
-    const totalDays = (statementDate - prevStatement) / 86400000;
-    const elapsed = (now - prevStatement) / 86400000;
-    const progressPercent = Math.min(100, Math.max(0, (elapsed / totalDays) * 100));
-    
-    document.getElementById('cycle-progress').style.width = `${progressPercent}%`;
-    document.getElementById('cycle-progress').style.background = zone.color;
+    const prevStatement = new Date(statementDate.getTime()); prevStatement.setMonth(prevStatement.getMonth() - 1);
+    const progressPercent = Math.min(100, Math.max(0, ((now - prevStatement) / (statementDate - prevStatement)) * 100));
+    document.getElementById('cycle-progress').style.width = `${progressPercent}%`; document.getElementById('cycle-progress').style.background = zone.color;
 }
 
 function renderAccountCarousel(balances) {
@@ -227,90 +205,63 @@ function renderBudgetTab(activeBudgets, monthExpenses) {
         return `
         <div class="budget-card">
             <div class="bud-header">
-                <div class="bud-info">
-                    <h4>${bud.name}</h4>
-                    <span>${bud.virtual ? '🔄 Recurring Plan' : '📝 Monthly Specific'}</span>
-                </div>
-                <div class="bud-stats">
-                    <span class="bud-stat-val" style="color: ${color}">Rs. ${spentVal.toLocaleString()}</span>
-                    <span class="bud-limit">of Rs. ${bud.amount.toLocaleString()}</span>
-                </div>
+                <div class="bud-info"><h4>${bud.name}</h4><span>${bud.virtual ? '🔄 Recurring' : '📝 Specific'}</span></div>
+                <div class="bud-stats"><span class="bud-stat-val" style="color: ${color}">Rs. ${spentVal.toLocaleString()}</span><span class="bud-limit">of Rs. ${bud.amount.toLocaleString()}</span></div>
             </div>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: ${prog}%; background: ${color}"></div>
-            </div>
-            <div class="action-btns" style="justify-content: flex-end; margin-top: 0.5rem">
-                <button onclick="deleteBudget('${bud.id}', '${bud.monthKey}')" class="delete-btn">🗑️</button>
-            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width: ${prog}%; background: ${color}"></div></div>
+            <div class="action-btns" style="justify-content: flex-end; margin-top: 0.5rem"><button onclick="deleteBudget('${bud.id}', '${bud.monthKey}')" class="delete-btn">🗑️</button></div>
         </div>`;
     }).join('');
 }
 
 function renderAccounts(balances) {
     const accList = document.getElementById('account-list');
-    accList.innerHTML = accounts.map(acc => `
-        <div class="acc-card">
-            <div class="acc-info">
-                <h4>${acc.name}</h4>
-                <span>${acc.type}</span>
-            </div>
-            <div class="acc-balance ${balances[acc.id] < 0 ? 'negative' : ''}">
-                Rs. ${balances[acc.id].toLocaleString(undefined, {minimumFractionDigits: 2})}
-            </div>
-        </div>
-    `).join('');
+    accList.innerHTML = accounts.map(acc => `<div class="acc-card"><div class="acc-info"><h4>${acc.name}</h4><span>${acc.type}</span></div><div class="acc-balance ${balances[acc.id] < 0 ? 'negative' : ''}">Rs. ${balances[acc.id].toLocaleString(undefined, {minimumFractionDigits: 2})}</div></div>`).join('');
 }
 
 function renderLedger() {
     const sorted = [...transactions].reverse();
-    renderTransactionList('recent-transaction-list', sorted.slice(0, 5));
+    renderTransactionList('recent-transaction-list', sorted.slice(0, 8));
     renderTransactionList('full-transaction-list', sorted);
 }
 
 function renderTransactionList(id, data) {
-    const list = document.getElementById(id);
-    if (!list) return;
+    const list = document.getElementById(id); if (!list) return;
     if (data.length === 0) { list.innerHTML = '<li class="empty-state">No records.</li>'; return; }
     list.innerHTML = data.map(tx => {
-        const acc = accounts.find(a => a.id === tx.accountId)?.name || 'Unknown';
-        return `
-        <li class="transaction-item">
-            <div class="transaction-info">
-                <span class="transaction-desc">${tx.desc}</span>
-                <span class="transaction-date">${acc} • ${formatter.format(new Date(tx.date))}</span>
-            </div>
-            <div class="transaction-actions">
-                <span class="transaction-amount ${tx.type}">${tx.type === 'income' ? '+' : ''}Rs. ${tx.amount.toLocaleString()}</span>
-                <div class="action-btns">
-                    <button onclick="editTransaction(${tx.id})" class="edit-btn">✏️</button>
-                    <button onclick="removeTransaction(${tx.id})" class="delete-btn">🗑️</button>
-                </div>
-            </div>
+        const accFrom = accounts.find(a => a.id === tx.accountId)?.name || 'Unknown';
+        const accTo = tx.type === 'transfer' ? accounts.find(a => a.id === tx.toAccountId)?.name || 'Unknown' : '';
+        const descText = tx.type === 'transfer' ? `Transfer: ${accFrom} ⇆ ${accTo}` : tx.desc;
+        const subText = tx.type === 'transfer' ? `Internal Movement • ${formatter.format(new Date(tx.date))}` : `${accFrom} • ${formatter.format(new Date(tx.date))}`;
+        
+        return `<li class="transaction-item">
+            <div class="transaction-info"><span class="transaction-desc">${descText}</span><span class="transaction-date">${subText}</span></div>
+            <div class="transaction-actions"><span class="transaction-amount ${tx.type}">${tx.type === 'income' ? '+' : ''}${tx.type === 'expense' ? '-' : ''}Rs. ${tx.amount.toLocaleString()}</span><div class="action-btns"><button onclick="editTransaction(${tx.id})" class="edit-btn">✏️</button><button onclick="removeTransaction(${tx.id})" class="delete-btn">🗑️</button></div></div>
         </li>`;
     }).join('');
 }
 
 function updateDropdowns() {
-    ['account-select', 'filter-account'].forEach(sid => {
-        const el = document.getElementById(sid);
-        if (!el) return;
+    ['account-select', 'account-to', 'filter-account'].forEach(sid => {
+        const el = document.getElementById(sid); if (!el) return;
+        const currentVal = el.value;
         let html = sid === 'filter-account' ? '<option value="all">All Accounts</option>' : '';
         html += accounts.map(acc => `<option value="${acc.id}">${acc.name}</option>`).join('');
         el.innerHTML = html;
+        if (currentVal) el.value = currentVal;
     });
 }
 
 // --- EVENTS ---
-document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.onclick = () => {
-        document.querySelectorAll('.tab-btn, .tab-pane').forEach(el => el.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
-    };
-});
+document.getElementById('type').onchange = (e) => {
+    document.getElementById('group-to').classList.toggle('hidden', e.target.value !== 'transfer');
+    document.getElementById('group-from').querySelector('label').innerText = e.target.value === 'transfer' ? 'From Account' : 'Account';
+};
+
+document.querySelectorAll('.tab-btn').forEach(btn => { btn.onclick = () => { document.querySelectorAll('.tab-btn, .tab-pane').forEach(el => el.classList.remove('active')); btn.classList.add('active'); document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active'); }; });
 document.getElementById('prev-month').onclick = () => { currentViewDate.setMonth(currentViewDate.getMonth() - 1); updateUI(); };
 document.getElementById('next-month').onclick = () => { currentViewDate.setMonth(currentViewDate.getMonth() + 1); updateUI(); };
-document.getElementById('quick-add-btn').onclick = () => { document.getElementById('modal-title').innerText = "Add Transaction"; document.getElementById('edit-id').value = ""; document.getElementById('transaction-form').reset(); document.getElementById('modal-overlay').classList.remove('hidden'); };
+document.getElementById('quick-add-btn').onclick = () => { document.getElementById('modal-title').innerText = "New Record"; document.getElementById('edit-id').value = ""; document.getElementById('transaction-form').reset(); document.getElementById('group-to').classList.add('hidden'); document.getElementById('modal-overlay').classList.remove('hidden'); };
 document.getElementById('add-budget-btn').onclick = () => document.getElementById('budget-modal-overlay').classList.remove('hidden');
 document.getElementById('add-account-btn').onclick = () => document.getElementById('account-modal-overlay').classList.remove('hidden');
 document.getElementById('close-modal').onclick = () => document.getElementById('modal-overlay').classList.add('hidden');
@@ -318,9 +269,27 @@ document.getElementById('close-bud-modal').onclick = () => document.getElementBy
 document.getElementById('close-acc-modal').onclick = () => document.getElementById('account-modal-overlay').classList.add('hidden');
 document.getElementById('acc-type').onchange = (e) => document.getElementById('credit-fields').classList.toggle('hidden', e.target.value !== 'credit');
 
-// --- FORM SUBMITS ---
+// --- FORMS ---
 document.getElementById('budget-form').onsubmit = (e) => { e.preventDefault(); budgetPlans.push({ id: 'bud-' + Date.now(), name: document.getElementById('bud-name').value, amount: parseFloat(document.getElementById('bud-amount').value), monthKey: getMonthKey(currentViewDate), recurring: document.getElementById('bud-recurring').checked }); saveToStorage(); document.getElementById('budget-modal-overlay').classList.add('hidden'); };
-document.getElementById('transaction-form').onsubmit = (e) => { e.preventDefault(); const id = document.getElementById('edit-id').value; const tx = { id: id ? parseInt(id) : Date.now(), accountId: document.getElementById('account-select').value, desc: document.getElementById('desc').value, amount: parseFloat(document.getElementById('amount').value), type: document.getElementById('type').value, date: id ? transactions.find(t => t.id == id).date : new Date().toISOString() }; if (id) transactions[transactions.findIndex(t => t.id == id)] = tx; else transactions.push(tx); saveToStorage(); document.getElementById('modal-overlay').classList.add('hidden'); };
+
+document.getElementById('transaction-form').onsubmit = (e) => {
+    e.preventDefault();
+    const id = document.getElementById('edit-id').value;
+    const tx = {
+        id: id ? parseInt(id) : Date.now(),
+        type: document.getElementById('type').value,
+        accountId: document.getElementById('account-select').value,
+        toAccountId: document.getElementById('account-to').value,
+        amount: parseFloat(document.getElementById('amount').value),
+        desc: document.getElementById('desc').value,
+        date: id ? transactions.find(t => t.id == id).date : new Date().toISOString()
+    };
+    if (id) transactions[transactions.findIndex(t => t.id == id)] = tx;
+    else transactions.push(tx);
+    saveToStorage();
+    document.getElementById('modal-overlay').classList.add('hidden');
+};
+
 document.getElementById('account-form').onsubmit = (e) => { e.preventDefault(); accounts.push({ id: 'acc-' + Date.now(), name: document.getElementById('acc-name').value, type: document.getElementById('acc-type').value, balance: parseFloat(document.getElementById('acc-balance').value), billingDay: parseInt(document.getElementById('billing-day').value) || 20 }); saveToStorage(); document.getElementById('account-modal-overlay').classList.add('hidden'); };
 
 (async function init() {
@@ -331,7 +300,20 @@ document.getElementById('account-form').onsubmit = (e) => { e.preventDefault(); 
 
 window.deleteBudget = (id, monthKey) => { if (confirm("Remove this goal?")) { const bud = budgetPlans.find(b => b.id === id); if (bud && bud.recurring && bud.monthKey < monthKey) budgetPlans.push({ ...bud, id: 'over-' + Date.now(), amount: 0, monthKey, recurring: false }); else budgetPlans = budgetPlans.filter(b => b.id !== id); saveToStorage(); } };
 window.removeTransaction = (id) => { if (confirm("Delete?")) { transactions = transactions.filter(t => t.id != id); saveToStorage(); } };
-window.editTransaction = (id) => { const tx = transactions.find(t => t.id == id); if (!tx) return; document.getElementById('modal-title').innerText = "Edit Transaction"; document.getElementById('edit-id').value = tx.id; document.getElementById('account-select').value = tx.accountId; document.getElementById('desc').value = tx.desc; document.getElementById('amount').value = tx.amount; document.getElementById('type').value = tx.type; document.getElementById('modal-overlay').classList.remove('hidden'); };
+window.editTransaction = (id) => {
+    const tx = transactions.find(t => t.id == id); if (!tx) return;
+    document.getElementById('modal-title').innerText = "Edit Record";
+    document.getElementById('edit-id').value = tx.id;
+    document.getElementById('type').value = tx.type;
+    document.getElementById('account-select').value = tx.accountId;
+    if (tx.type === 'transfer') {
+        document.getElementById('group-to').classList.remove('hidden');
+        document.getElementById('account-to').value = tx.toAccountId;
+    } else { document.getElementById('group-to').classList.add('hidden'); }
+    document.getElementById('amount').value = tx.amount;
+    document.getElementById('desc').value = tx.desc;
+    document.getElementById('modal-overlay').classList.remove('hidden');
+};
 document.getElementById('open-settings').onclick = () => { document.getElementById('backend-url').value = backendUrl; document.getElementById('settings-overlay').classList.remove('hidden'); };
 document.getElementById('close-settings').onclick = () => document.getElementById('settings-overlay').classList.add('hidden');
 document.getElementById('save-settings').onclick = async () => { backendUrl = document.getElementById('backend-url').value.trim(); localStorage.setItem('card-tracker-backend', backendUrl); await syncToCloud(); document.getElementById('settings-overlay').classList.add('hidden'); };

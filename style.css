@@ -540,6 +540,10 @@ main {
     color: var(--danger);
 }
 
+.transaction-amount.transfer {
+    color: var(--accent-cyan);
+}
+
 .empty-state {
     text-align: center;
     color: var(--text-gray);

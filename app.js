@@ -3,7 +3,6 @@
  */
 
 // --- DATA MANAGEMENT ---
-// Default starting data
 const DEFAULT_ACCOUNTS = [
     { id: 'acc-savings', name: 'Savings Account', type: 'bank', balance: 50000 },
     { id: 'acc-cc', name: 'ComBank Platinum', type: 'credit', balance: 0, billingDay: 20 },
@@ -100,7 +99,7 @@ async function loadFromCloud() {
     return false;
 }
 
-// --- LOGIC ---
+// --- CORE UTILS ---
 const formatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
 function calculateAccountBalances() {
@@ -116,14 +115,10 @@ function calculateAccountBalances() {
 }
 
 function getActiveBudgets(monthKey) {
-    // Current month's actual plans
     let active = budgetPlans.filter(p => p.monthKey === monthKey);
-    
-    // Find missing categories from previous recurring plans
     const recurringSources = budgetPlans.filter(p => p.recurring && p.monthKey < monthKey);
     recurringSources.forEach(source => {
         if (!active.find(a => a.name === source.name)) {
-            // Virtual recurring budget
             active.push({ ...source, monthKey, virtual: true });
         }
     });
@@ -137,47 +132,85 @@ function updateUI() {
     document.getElementById('today-date').innerText = formatter.format(now);
 
     const mKey = getMonthKey(currentViewDate);
-    const viewMonthStr = currentViewDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-    document.getElementById('current-budget-month').innerText = viewMonthStr;
+    document.getElementById('current-budget-month').innerText = currentViewDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
-    // Summary Calculations
+    // Summary
     const netWorth = Object.values(balances).reduce((a, b) => a + b, 0);
-    const monthExpenses = transactions.filter(tx => tx.type === 'expense' && getMonthKey(new Date(tx.date)) === mKey);
-    const totalSpent = monthExpenses.reduce((s, tx) => s + tx.amount, 0);
+    const totalSpent = transactions
+        .filter(tx => tx.type === 'expense' && getMonthKey(new Date(tx.date)) === getMonthKey(now))
+        .reduce((sum, tx) => sum + tx.amount, 0);
 
-    const activeBudgets = getActiveBudgets(mKey);
+    const activeBudgets = getActiveBudgets(getMonthKey(now));
     const totalPlanned = activeBudgets.reduce((s, b) => s + b.amount, 0);
     const budgetProgress = totalPlanned > 0 ? Math.min(100, Math.round((totalSpent / totalPlanned) * 100)) : 0;
 
     document.getElementById('net-worth').innerText = `Rs. ${netWorth.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
     document.getElementById('budget-summary').innerText = `${budgetProgress}% of Rs. ${totalPlanned.toLocaleString()}`;
 
-    // Render Tabs
-    renderBudgetTab(activeBudgets, monthExpenses);
+    // Render Components
+    renderBudgetTab(getActiveBudgets(mKey), transactions.filter(tx => tx.type === 'expense' && getMonthKey(new Date(tx.date)) === mKey));
     renderAccounts(balances);
     renderLedger();
-    
-    // Quick Add Sync
     updateDropdowns();
+
+    // RESTORE CREDIT CARD CYCLE LOGIC
+    const cc = accounts.find(a => a.type === 'credit');
+    const cycleSection = document.getElementById('card-cycle-section');
+    if (cc) {
+        cycleSection.classList.remove('hidden');
+        updateCreditCycleInfo(cc);
+    } else {
+        cycleSection.classList.add('hidden');
+    }
+}
+
+function updateCreditCycleInfo(cc) {
+    const now = new Date();
+    const today = now.getDate();
+    const bDay = cc.billingDay || 20;
+
+    // 1. Calculate Next Statement Date
+    let statementDate = new Date(now.getFullYear(), now.getMonth() + (today > bDay ? 1 : 0), bDay);
+    
+    // 2. Determine Zone
+    let zone = { id: 'safe', badge: 'SAFE ZONE', title: 'Safe Spending', desc: 'Ideal for large purchases. Interest-free period is maximized.', class: 'badge-safe', color: '#4ade80' };
+    if (today >= 11 && today <= 15) {
+        zone = { id: 'warning', badge: 'CAUTION ZONE', title: 'Window Shrinking', desc: 'Interest-free period is decreasing. Avoid large non-essentials.', class: 'badge-warning', color: '#facc15' };
+    } else if (today >= 16 && today <= 20) {
+        zone = { id: 'danger', badge: 'RISK ZONE', title: 'Critical Period', desc: 'Short interest-free window (~20 days). Wait until next statement if possible!', class: 'badge-danger', color: '#f87171' };
+    }
+    if (today >= 2 && today <= 5) {
+        zone.title = "💳 Payment Window!";
+        zone.desc = "Salary received! Clear your outstanding balance now to avoid fees.";
+    }
+
+    // 3. UI Sync
+    document.getElementById('cycle-account-name').innerText = `${cc.name.toUpperCase()} CYCLE`;
+    document.getElementById('zone-badge').innerText = zone.badge;
+    document.getElementById('zone-badge').className = `badge ${zone.class}`;
+    document.getElementById('zone-title').innerText = zone.title;
+    document.getElementById('zone-description').innerText = zone.desc;
+    document.getElementById('days-remaining').innerText = `${Math.ceil((statementDate - now) / 86400000)} days left`;
+    
+    // Progress fill accurate calc
+    const prevStatement = new Date(statementDate.getTime());
+    prevStatement.setMonth(prevStatement.getMonth() - 1);
+    const totalDays = (statementDate - prevStatement) / 86400000;
+    const elapsed = (now - prevStatement) / 86400000;
+    const progressPercent = Math.min(100, Math.max(0, (elapsed / totalDays) * 100));
+    
+    document.getElementById('cycle-progress').style.width = `${progressPercent}%`;
+    document.getElementById('cycle-progress').style.background = zone.color;
 }
 
 function renderBudgetTab(activeBudgets, monthExpenses) {
     const list = document.getElementById('budget-list');
-    if (activeBudgets.length === 0) {
-        list.innerHTML = '<li class="empty-state">No budget goals for this month.</li>';
-        return;
-    }
-
+    if (!list) return;
+    if (activeBudgets.length === 0) { list.innerHTML = '<li class="empty-state">No budget goals for this month.</li>'; return; }
     list.innerHTML = activeBudgets.map(bud => {
-        // Find spending for this specific category (simple match on description or tags)
-        // For now, let's assume category matches description prefix or exact match
-        const spentVal = monthExpenses
-            .filter(tx => tx.desc.toLowerCase().includes(bud.name.toLowerCase()))
-            .reduce((s, tx) => s + tx.amount, 0);
-        
+        const spentVal = monthExpenses.filter(tx => tx.desc.toLowerCase().includes(bud.name.toLowerCase())).reduce((s, tx) => s + tx.amount, 0);
         const prog = bud.amount > 0 ? Math.min(100, (spentVal / bud.amount) * 100) : 0;
         const color = spentVal > bud.amount ? 'var(--danger)' : 'var(--success)';
-
         return `
         <div class="budget-card">
             <div class="bud-header">
@@ -225,7 +258,6 @@ function renderTransactionList(id, data) {
     const list = document.getElementById(id);
     if (!list) return;
     if (data.length === 0) { list.innerHTML = '<li class="empty-state">No records.</li>'; return; }
-    
     list.innerHTML = data.map(tx => {
         const acc = accounts.find(a => a.id === tx.accountId)?.name || 'Unknown';
         return `
@@ -246,8 +278,7 @@ function renderTransactionList(id, data) {
 }
 
 function updateDropdowns() {
-    const selects = ['account-select', 'filter-account'];
-    selects.forEach(sid => {
+    ['account-select', 'filter-account'].forEach(sid => {
         const el = document.getElementById(sid);
         if (!el) return;
         let html = sid === 'filter-account' ? '<option value="all">All Accounts</option>' : '';
@@ -264,123 +295,31 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
         document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
     };
 });
-
 document.getElementById('prev-month').onclick = () => { currentViewDate.setMonth(currentViewDate.getMonth() - 1); updateUI(); };
 document.getElementById('next-month').onclick = () => { currentViewDate.setMonth(currentViewDate.getMonth() + 1); updateUI(); };
-
-document.getElementById('quick-add-btn').onclick = () => {
-    document.getElementById('modal-title').innerText = "Add Transaction";
-    document.getElementById('edit-id').value = "";
-    document.getElementById('transaction-form').reset();
-    document.getElementById('modal-overlay').classList.remove('hidden');
-};
-
-document.getElementById('add-budget-btn').onclick = () => {
-    document.getElementById('budget-modal-overlay').classList.remove('hidden');
-};
-
+document.getElementById('quick-add-btn').onclick = () => { document.getElementById('modal-title').innerText = "Add Transaction"; document.getElementById('edit-id').value = ""; document.getElementById('transaction-form').reset(); document.getElementById('modal-overlay').classList.remove('hidden'); };
+document.getElementById('add-budget-btn').onclick = () => document.getElementById('budget-modal-overlay').classList.remove('hidden');
+document.getElementById('add-account-btn').onclick = () => document.getElementById('account-modal-overlay').classList.remove('hidden');
 document.getElementById('close-modal').onclick = () => document.getElementById('modal-overlay').classList.add('hidden');
 document.getElementById('close-bud-modal').onclick = () => document.getElementById('budget-modal-overlay').classList.add('hidden');
 document.getElementById('close-acc-modal').onclick = () => document.getElementById('account-modal-overlay').classList.add('hidden');
+document.getElementById('acc-type').onchange = (e) => document.getElementById('credit-fields').classList.toggle('hidden', e.target.value !== 'credit');
 
 // --- FORM SUBMITS ---
-document.getElementById('budget-form').onsubmit = (e) => {
-    e.preventDefault();
-    const plan = {
-        id: 'bud-' + Date.now(),
-        name: document.getElementById('bud-name').value,
-        amount: parseFloat(document.getElementById('bud-amount').value),
-        monthKey: getMonthKey(currentViewDate),
-        recurring: document.getElementById('bud-recurring').checked
-    };
-    budgetPlans.push(plan);
-    saveToStorage();
-    document.getElementById('budget-modal-overlay').classList.add('hidden');
-};
+document.getElementById('budget-form').onsubmit = (e) => { e.preventDefault(); budgetPlans.push({ id: 'bud-' + Date.now(), name: document.getElementById('bud-name').value, amount: parseFloat(document.getElementById('bud-amount').value), monthKey: getMonthKey(currentViewDate), recurring: document.getElementById('bud-recurring').checked }); saveToStorage(); document.getElementById('budget-modal-overlay').classList.add('hidden'); };
+document.getElementById('transaction-form').onsubmit = (e) => { e.preventDefault(); const id = document.getElementById('edit-id').value; const tx = { id: id ? parseInt(id) : Date.now(), accountId: document.getElementById('account-select').value, desc: document.getElementById('desc').value, amount: parseFloat(document.getElementById('amount').value), type: document.getElementById('type').value, date: id ? transactions.find(t => t.id == id).date : new Date().toISOString() }; if (id) transactions[transactions.findIndex(t => t.id == id)] = tx; else transactions.push(tx); saveToStorage(); document.getElementById('modal-overlay').classList.add('hidden'); };
+document.getElementById('account-form').onsubmit = (e) => { e.preventDefault(); accounts.push({ id: 'acc-' + Date.now(), name: document.getElementById('acc-name').value, type: document.getElementById('acc-type').value, balance: parseFloat(document.getElementById('acc-balance').value), billingDay: parseInt(document.getElementById('billing-day').value) || 20 }); saveToStorage(); document.getElementById('account-modal-overlay').classList.add('hidden'); };
 
-document.getElementById('transaction-form').onsubmit = (e) => {
-    e.preventDefault();
-    const id = document.getElementById('edit-id').value;
-    const tx = {
-        id: id ? parseInt(id) : Date.now(),
-        accountId: document.getElementById('account-select').value,
-        desc: document.getElementById('desc').value,
-        amount: parseFloat(document.getElementById('amount').value),
-        type: document.getElementById('type').value,
-        date: id ? transactions.find(t => t.id == id).date : new Date().toISOString()
-    };
-    if (id) {
-        const idx = transactions.findIndex(t => t.id == id);
-        transactions[idx] = tx;
-    } else { transactions.push(tx); }
-    saveToStorage();
-    document.getElementById('modal-overlay').classList.add('hidden');
-};
-
-document.getElementById('account-form').onsubmit = (e) => {
-    e.preventDefault();
-    accounts.push({
-        id: 'acc-' + Date.now(),
-        name: document.getElementById('acc-name').value,
-        type: document.getElementById('acc-type').value,
-        balance: parseFloat(document.getElementById('acc-balance').value),
-        billingDay: parseInt(document.getElementById('billing-day').value) || 20
-    });
-    saveToStorage();
-    document.getElementById('account-modal-overlay').classList.add('hidden');
-};
-
-// --- INITIALIZE ---
 (async function init() {
     if (backendUrl) await loadFromCloud();
-    else {
-        const statusEl = document.getElementById('sync-status');
-        statusEl.innerHTML = '<span class="dot"></span> Local Mode';
-    }
+    else { const statusEl = document.getElementById('sync-status'); statusEl.innerHTML = '<span class="dot"></span> Local Mode'; }
     updateUI();
 })();
 
-window.deleteBudget = (id, monthKey) => {
-    if (confirm("Remove this goal?")) {
-        const bud = budgetPlans.find(b => b.id === id);
-        if (bud && bud.recurring && bud.monthKey < monthKey) {
-            // It's a virtual recurring item being overridden/deleted for this specific month
-            budgetPlans.push({ ...bud, id: 'over-' + Date.now(), amount: 0, monthKey, recurring: false });
-        } else {
-            budgetPlans = budgetPlans.filter(b => b.id !== id);
-        }
-        saveToStorage();
-    }
-};
-
-window.removeTransaction = (id) => {
-    if (confirm("Delete?")) { transactions = transactions.filter(t => t.id != id); saveToStorage(); }
-};
-
-window.editTransaction = (id) => {
-    const tx = transactions.find(t => t.id == id);
-    if (!tx) return;
-    document.getElementById('modal-title').innerText = "Edit Transaction";
-    document.getElementById('edit-id').value = tx.id;
-    document.getElementById('account-select').value = tx.accountId;
-    document.getElementById('desc').value = tx.desc;
-    document.getElementById('amount').value = tx.amount;
-    document.getElementById('type').value = tx.type;
-    document.getElementById('modal-overlay').classList.remove('hidden');
-};
-
-// Sync triggers
+window.deleteBudget = (id, monthKey) => { if (confirm("Remove this goal?")) { const bud = budgetPlans.find(b => b.id === id); if (bud && bud.recurring && bud.monthKey < monthKey) budgetPlans.push({ ...bud, id: 'over-' + Date.now(), amount: 0, monthKey, recurring: false }); else budgetPlans = budgetPlans.filter(b => b.id !== id); saveToStorage(); } };
+window.removeTransaction = (id) => { if (confirm("Delete?")) { transactions = transactions.filter(t => t.id != id); saveToStorage(); } };
+window.editTransaction = (id) => { const tx = transactions.find(t => t.id == id); if (!tx) return; document.getElementById('modal-title').innerText = "Edit Transaction"; document.getElementById('edit-id').value = tx.id; document.getElementById('account-select').value = tx.accountId; document.getElementById('desc').value = tx.desc; document.getElementById('amount').value = tx.amount; document.getElementById('type').value = tx.type; document.getElementById('modal-overlay').classList.remove('hidden'); };
 document.getElementById('open-settings').onclick = () => { document.getElementById('backend-url').value = backendUrl; document.getElementById('settings-overlay').classList.remove('hidden'); };
 document.getElementById('close-settings').onclick = () => document.getElementById('settings-overlay').classList.add('hidden');
-document.getElementById('save-settings').onclick = async () => {
-    backendUrl = document.getElementById('backend-url').value.trim();
-    localStorage.setItem('card-tracker-backend', backendUrl);
-    await syncToCloud();
-    document.getElementById('settings-overlay').classList.add('hidden');
-};
-document.getElementById('clear-data').onclick = () => {
-    if(confirm("Wipe all data?")) {
-        transactions = []; accounts = DEFAULT_ACCOUNTS; budgetPlans = [];
-        saveToStorage();
-    }
-};
+document.getElementById('save-settings').onclick = async () => { backendUrl = document.getElementById('backend-url').value.trim(); localStorage.setItem('card-tracker-backend', backendUrl); await syncToCloud(); document.getElementById('settings-overlay').classList.add('hidden'); };
+document.getElementById('clear-data').onclick = () => { if(confirm("Wipe all data?")) { transactions = []; accounts = DEFAULT_ACCOUNTS; budgetPlans = []; saveToStorage(); } };

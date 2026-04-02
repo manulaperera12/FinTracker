@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Tracker | Commercial Bank Platinum Dashboard</title>
+    <meta name="description" content="Optimize your credit card billing cycle and stay debt-free with smart spending indicators.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <div class="logo">
+                <span class="icon">💳</span>
+                <h1>Card Tracker</h1>
+            </div>
+            <div class="date-display" id="today-date">-- ---, 202X</div>
+        </header>
+
+        <main>
+            <!-- Status Card -->
+            <section class="status-section">
+                <div class="card status-card" id="status-card-bg">
+                    <div class="status-header">
+                        <span class="label">CURRENT SPENDING ZONE</span>
+                        <div class="badge" id="zone-badge">Analyzing...</div>
+                    </div>
+                    <div class="status-content">
+                        <h2 id="zone-title">Zone Title</h2>
+                        <p id="zone-description">Loading your financial cycle details...</p>
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div id="cycle-progress" class="progress-fill"></div>
+                        </div>
+                        <div class="progress-labels">
+                            <span>Statement (20th)</span>
+                            <span id="days-remaining">-- days left</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Key Dates Grid -->
+            <section class="dates-grid">
+                <div class="card mini-card highlight">
+                    <div class="icon-circle">📅</div>
+                    <div class="mini-card-info">
+                        <span class="label">Next Statement</span>
+                        <h3 id="next-statement-date">-- ---</h3>
+                    </div>
+                </div>
+                <div class="card mini-card">
+                    <div class="icon-circle">⏳</div>
+                    <div class="mini-card-info">
+                        <span class="label">Next Due Date</span>
+                        <h3 id="next-due-date">-- ---</h3>
+                    </div>
+                </div>
+                <div class="card mini-card">
+                    <div class="icon-circle">💸</div>
+                    <div class="mini-card-info">
+                        <span class="label">Payment Window</span>
+                        <h3 id="payment-window">2nd - 10th</h3>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Transactions / Ledger -->
+            <section class="ledger-section">
+                <div class="section-header">
+                    <h2>Spending Ledger</h2>
+                    <button id="add-transaction-btn" class="btn-primary">+ Add New</button>
+                </div>
+                <div class="card ledger-card">
+                    <div class="ledger-totals">
+                        <div class="total-item">
+                            <span class="label">Current Month</span>
+                            <h4 id="total-spending">Rs. 0.00</h4>
+                        </div>
+                        <div class="total-item">
+                            <span class="label">Safe Limit (Estimated)</span>
+                            <h4 id="safe-limit">Rs. 50,000.00</h4>
+                        </div>
+                    </div>
+                    <div class="transaction-list-container">
+                        <ul id="transaction-list" class="transaction-list">
+                            <!-- Transactions will be injected here -->
+                            <li class="empty-state">No transactions recorded yet.</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Modals -->
+        <div id="modal-overlay" class="modal-overlay hidden">
+            <div class="modal card">
+                <h3>Add Transaction</h3>
+                <form id="transaction-form">
+                    <div class="form-group">
+                        <label for="desc">Description</label>
+                        <input type="text" id="desc" placeholder="e.g. Petrol, Groceries" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="amount">Amount (Rs.)</label>
+                        <input type="number" id="amount" placeholder="0.00" step="0.01" required>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" id="close-modal" class="btn-secondary">Cancel</button>
+                        <button type="submit" class="btn-primary">Save Expense</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <footer>
+            <div class="sync-status" id="sync-status">
+                <span class="dot"></span> Local Mode
+            </div>
+            <div class="footer-links">
+                <button id="open-settings" title="Cloud Sync Settings">⚙️ Sync Settings</button>
+                <button id="export-data" title="Backup your data">💾 Export JSON</button>
+                <button id="import-data" title="Restore your data">📂 Import JSON</button>
+                <button id="clear-data" class="text-danger" title="Danger Zone">🗑️ Reset All</button>
+            </div>
+            <p>&copy; 2024 Card Tracker | Built for ComBank Platinum</p>
+        </footer>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-overlay" class="modal-overlay hidden">
+        <div class="modal card">
+            <h3>Cloud Sync Settings</h3>
+            <p class="label" style="text-transform: none; margin-bottom: 1rem;">Enter your Google Apps Script URL for 100% free persistent storage.</p>
+            <div class="form-group">
+                <label for="backend-url">Script URL</label>
+                <input type="url" id="backend-url" placeholder="https://script.google.com/macros/s/.../exec">
+            </div>
+            <div class="form-actions">
+                <button type="button" id="close-settings" class="btn-secondary">Close</button>
+                <button type="button" id="save-settings" class="btn-primary">Connect & Sync</button>
+            </div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

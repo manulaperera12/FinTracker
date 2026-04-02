@@ -187,8 +187,8 @@ function updateUI() {
                 <div class="transaction-actions">
                     <span class="transaction-amount">Rs. ${tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                     <div class="action-btns">
-                        <button onclick="editTransaction(${tx.id})" title="Edit">✏️</button>
-                        <button onclick="removeTransaction(${tx.id})" title="Delete">🗑️</button>
+                        <button onclick="editTransaction(${tx.id})" title="Edit" class="edit-btn">✏️</button>
+                        <button onclick="removeTransaction(${tx.id})" title="Delete" class="delete-btn">🗑️</button>
                     </div>
                 </div>
             </li>

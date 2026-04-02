@@ -40,12 +40,12 @@
             <section id="tab-overview" class="tab-pane active">
                 <div class="summary-grid">
                     <div class="card summary-card glow-blue">
-                        <span class="label">Net Assets</span>
+                        <span class="label">Total Wealth (Net)</span>
                         <h2 id="net-worth" class="money">Rs. 0.00</h2>
                     </div>
-                    <div class="card summary-card glow-purple">
-                        <span class="label">Budget Progress</span>
-                        <h2 id="budget-summary" class="money">0% Limit</h2>
+                    <div class="card summary-card glow-pink">
+                        <span class="label">Spending Money</span>
+                        <h2 id="liquid-cash" class="money">Rs. 0.00</h2>
                     </div>
                 </div>
 
@@ -221,7 +221,8 @@
                     <div class="form-group">
                         <label for="acc-type">Type</label>
                         <select id="acc-type">
-                            <option value="bank">Bank Account</option>
+                            <option value="bank">Current Account (Spending)</option>
+                            <option value="savings">Savings Account (Internal Assets)</option>
                             <option value="credit">Credit Card</option>
                             <option value="cash">Cash</option>
                         </select>

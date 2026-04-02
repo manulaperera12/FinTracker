@@ -43,6 +43,7 @@ async function saveToStorage() {
 async function syncToCloud() {
     if (!backendUrl) return;
     const statusEl = document.getElementById('sync-status');
+    statusEl.className = 'sync-status'; // Reset
     statusEl.innerHTML = '<span class="dot"></span> Syncing...';
     showLoader("Cloud Syncing...");
     
@@ -55,7 +56,7 @@ async function syncToCloud() {
             body: JSON.stringify(payload)
         });
         statusEl.className = 'sync-status online';
-        statusEl.innerHTML = '<span class="dot"></span> Cloud Synced';
+        statusEl.innerHTML = '<span class="dot"></span> Cloud Online';
     } catch (err) {
         statusEl.className = 'sync-status offline';
         statusEl.innerHTML = '<span class="dot"></span> Sync Error';
@@ -66,7 +67,11 @@ async function syncToCloud() {
 
 async function loadFromCloud() {
     if (!backendUrl) return;
+    const statusEl = document.getElementById('sync-status');
+    statusEl.className = 'sync-status';
+    statusEl.innerHTML = '<span class="dot"></span> Fetching...';
     showLoader("Refreshing...");
+    
     try {
         const response = await fetch(backendUrl);
         if (response.ok) {
@@ -76,11 +81,18 @@ async function loadFromCloud() {
                 accounts = data.accounts;
                 localStorage.setItem('fintracker-tx', JSON.stringify(transactions));
                 localStorage.setItem('fintracker-accounts', JSON.stringify(accounts));
+                
+                statusEl.className = 'sync-status online';
+                statusEl.innerHTML = '<span class="dot"></span> Cloud Online';
                 updateUI();
                 return true;
             }
         }
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+        statusEl.className = 'sync-status offline';
+        statusEl.innerHTML = '<span class="dot"></span> Offline';
+        console.error(err); 
+    }
     finally { hideLoader(); }
     return false;
 }
@@ -263,7 +275,15 @@ document.getElementById('account-form').onsubmit = (e) => {
 
 // --- INITIALIZE ---
 (async function init() {
-    if (backendUrl) await loadFromCloud();
+    const statusEl = document.getElementById('sync-status');
+    if (backendUrl) {
+        statusEl.className = 'sync-status';
+        statusEl.innerHTML = '<span class="dot"></span> Connecting...';
+        await loadFromCloud();
+    } else {
+        statusEl.className = 'sync-status';
+        statusEl.innerHTML = '<span class="dot"></span> Local Mode';
+    }
     updateUI();
 })();
 

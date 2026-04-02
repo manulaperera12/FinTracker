@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Card Tracker | Commercial Bank Platinum Dashboard</title>
-    <meta name="description" content="Optimize your credit card billing cycle and stay debt-free with smart spending indicators.">
+    <title>FinTracker | Universal Wealth Dashboard</title>
+    <meta name="description" content="Unified Bank Account and Credit Card tracker inspired by SpendSense and Card Tracker.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet">
@@ -22,107 +22,175 @@
     <div class="app-container">
         <header>
             <div class="logo">
-                <span class="icon">💳</span>
-                <h1>Card Tracker</h1>
+                <span class="icon">💰</span>
+                <h1>FinTracker</h1>
             </div>
             <div class="date-display" id="today-date">-- ---, 202X</div>
         </header>
 
-        <main>
-            <!-- Status Card -->
-            <section class="status-section">
-                <div class="card status-card" id="status-card-bg">
+        <nav class="main-tabs">
+            <button class="tab-btn active" data-tab="overview">Dashboard</button>
+            <button class="tab-btn" data-tab="accounts">Accounts</button>
+            <button class="tab-btn" data-tab="ledger">Ledger</button>
+        </nav>
+
+        <main id="main-content">
+            <!-- TAB: OVERVIEW -->
+            <section id="tab-overview" class="tab-pane active">
+                <div class="summary-grid">
+                    <div class="card summary-card glow-blue">
+                        <span class="label">Net Assets</span>
+                        <h2 id="net-worth" class="money">Rs. 0.00</h2>
+                    </div>
+                    <div class="card summary-card glow-pink">
+                        <span class="label">Monthly Spending</span>
+                        <h2 id="monthly-spending" class="money">Rs. 0.00</h2>
+                    </div>
+                </div>
+
+                <!-- Active Card Cycle (If exists) -->
+                <div id="card-cycle-section" class="card status-card hidden">
                     <div class="status-header">
-                        <span class="label">CURRENT SPENDING ZONE</span>
-                        <div class="badge" id="zone-badge">Analyzing...</div>
+                        <span class="label" id="cycle-account-name">CREDIT CARD CYCLE</span>
+                        <div class="badge badge-safe" id="zone-badge">SAFE ZONE</div>
                     </div>
                     <div class="status-content">
-                        <h2 id="zone-title">Zone Title</h2>
-                        <p id="zone-description">Loading your financial cycle details...</p>
+                        <h2 id="zone-title">Safe Spending</h2>
+                        <p id="zone-description">Interest-free period is maximized.</p>
                     </div>
                     <div class="progress-container">
                         <div class="progress-bar">
                             <div id="cycle-progress" class="progress-fill"></div>
                         </div>
                         <div class="progress-labels">
-                            <span>Statement (20th)</span>
+                            <span id="cycle-start-label">Statement (20th)</span>
                             <span id="days-remaining">-- days left</span>
                         </div>
                     </div>
                 </div>
-            </section>
 
-            <!-- Key Dates Grid -->
-            <section class="dates-grid">
-                <div class="card mini-card highlight">
-                    <div class="icon-circle">📅</div>
-                    <div class="mini-card-info">
-                        <span class="label">Next Statement</span>
-                        <h3 id="next-statement-date">-- ---</h3>
-                    </div>
-                </div>
-                <div class="card mini-card">
-                    <div class="icon-circle">⏳</div>
-                    <div class="mini-card-info">
-                        <span class="label">Next Due Date</span>
-                        <h3 id="next-due-date">-- ---</h3>
-                    </div>
-                </div>
-                <div class="card mini-card">
-                    <div class="icon-circle">💸</div>
-                    <div class="mini-card-info">
-                        <span class="label">Payment Window</span>
-                        <h3 id="payment-window">2nd - 10th</h3>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Transactions / Ledger -->
-            <section class="ledger-section">
                 <div class="section-header">
-                    <h2>Spending Ledger</h2>
-                    <button id="add-transaction-btn" class="btn-primary">+ Add New</button>
+                    <h2>Recent Activities</h2>
+                    <button id="quick-add-btn" class="btn-primary">+ New</button>
                 </div>
-                <div class="card ledger-card">
-                    <div class="ledger-totals">
-                        <div class="total-item">
-                            <span class="label">Current Month</span>
-                            <h4 id="total-spending">Rs. 0.00</h4>
-                        </div>
-                        <div class="total-item">
-                            <span class="label">Safe Limit (Estimated)</span>
-                            <h4 id="safe-limit">Rs. 50,000.00</h4>
-                        </div>
+                <div class="card ledger-card minimised">
+                    <ul id="recent-transaction-list" class="transaction-list">
+                        <!-- Injected by JS -->
+                    </ul>
+                </div>
+            </section>
+
+            <!-- TAB: ACCOUNTS -->
+            <section id="tab-accounts" class="tab-pane">
+                <div class="section-header">
+                    <h2>Your Accounts</h2>
+                    <button id="add-account-btn" class="btn-secondary">+ Add Bank/Card</button>
+                </div>
+                <div id="account-list" class="account-grid">
+                    <!-- Injected by JS -->
+                </div>
+            </section>
+
+            <!-- TAB: LEDGER -->
+            <section id="tab-ledger" class="tab-pane">
+                <div class="section-header">
+                    <h2>Transaction Ledger</h2>
+                    <div class="filters">
+                        <select id="filter-account">
+                            <option value="all">All Accounts</option>
+                        </select>
                     </div>
-                    <div class="transaction-list-container">
-                        <ul id="transaction-list" class="transaction-list">
-                            <!-- Transactions will be injected here -->
-                            <li class="empty-state">No transactions recorded yet.</li>
-                        </ul>
-                    </div>
+                </div>
+                <div class="card ledger-card full">
+                    <ul id="full-transaction-list" class="transaction-list">
+                        <!-- Injected by JS -->
+                    </ul>
                 </div>
             </section>
         </main>
 
-        <!-- Modals -->
+        <!-- Transaction Modal -->
         <div id="modal-overlay" class="modal-overlay hidden">
             <div class="modal card">
                 <h3 id="modal-title">Add Transaction</h3>
                 <form id="transaction-form">
                     <input type="hidden" id="edit-id">
                     <div class="form-group">
+                        <label for="account-select">Account</label>
+                        <select id="account-select" required>
+                            <!-- Injected by JS -->
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="desc">Description</label>
-                        <input type="text" id="desc" placeholder="e.g. Petrol, Groceries" required>
+                        <input type="text" id="desc" placeholder="e.g. Salary, Rent, Petrol" required>
                     </div>
                     <div class="form-group">
                         <label for="amount">Amount (Rs.)</label>
                         <input type="number" id="amount" placeholder="0.00" step="0.01" required>
                     </div>
+                    <div class="form-group">
+                        <label for="type">Type</label>
+                        <select id="type">
+                            <option value="expense">Expense</option>
+                            <option value="income">Income</option>
+                        </select>
+                    </div>
                     <div class="form-actions">
                         <button type="button" id="close-modal" class="btn-secondary">Cancel</button>
-                        <button type="submit" class="btn-primary">Save Expense</button>
+                        <button type="submit" class="btn-primary">Save</button>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        <!-- Account Modal -->
+        <div id="account-modal-overlay" class="modal-overlay hidden">
+            <div class="modal card">
+                <h3>Add Account</h3>
+                <form id="account-form">
+                    <div class="form-group">
+                        <label for="acc-name">Account Name</label>
+                        <input type="text" id="acc-name" placeholder="e.g. HNB Savings" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="acc-type">Type</label>
+                        <select id="acc-type">
+                            <option value="bank">Bank Account</option>
+                            <option value="credit">Credit Card</option>
+                            <option value="cash">Cash</option>
+                        </select>
+                    </div>
+                    <div id="credit-fields" class="hidden">
+                        <div class="form-group">
+                            <label for="billing-day">Statement Date (Day of Month)</label>
+                            <input type="number" id="billing-day" value="20" min="1" max="31">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="acc-balance">Starting Balance (Rs.)</label>
+                        <input type="number" id="acc-balance" value="0" step="0.01" required>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" id="close-acc-modal" class="btn-secondary">Cancel</button>
+                        <button type="submit" class="btn-primary">Create Account</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settings-overlay" class="modal-overlay hidden">
+            <div class="modal card">
+                <h3>Cloud Sync Settings</h3>
+                <div class="form-group">
+                    <label for="backend-url">Script URL</label>
+                    <input type="url" id="backend-url" placeholder="https://script.google.com/macros/s/.../exec">
+                </div>
+                <div class="form-actions">
+                    <button type="button" id="close-settings" class="btn-secondary">Close</button>
+                    <button type="button" id="save-settings" class="btn-primary">Connect & Sync</button>
+                </div>
             </div>
         </div>
 
@@ -131,29 +199,12 @@
                 <span class="dot"></span> Local Mode
             </div>
             <div class="footer-links">
-                <button id="open-settings" title="Cloud Sync Settings">⚙️ Sync Settings</button>
-                <button id="export-data" title="Backup your data">💾 Export JSON</button>
-                <button id="import-data" title="Restore your data">📂 Import JSON</button>
-                <button id="clear-data" class="text-danger" title="Danger Zone">🗑️ Reset All</button>
+                <button id="open-settings">⚙️ Sync</button>
+                <button id="export-data">💾 Export</button>
+                <button id="clear-data" class="text-danger">🗑️ Reset</button>
             </div>
-            <p>&copy; 2024 Card Tracker | Built for ComBank Platinum</p>
+            <p>&copy; 2024 FinTracker x SpendSense | Universal Wealth</p>
         </footer>
-    </div>
-
-    <!-- Settings Modal -->
-    <div id="settings-overlay" class="modal-overlay hidden">
-        <div class="modal card">
-            <h3>Cloud Sync Settings</h3>
-            <p class="label" style="text-transform: none; margin-bottom: 1rem;">Enter your Google Apps Script URL for 100% free persistent storage.</p>
-            <div class="form-group">
-                <label for="backend-url">Script URL</label>
-                <input type="url" id="backend-url" placeholder="https://script.google.com/macros/s/.../exec">
-            </div>
-            <div class="form-actions">
-                <button type="button" id="close-settings" class="btn-secondary">Close</button>
-                <button type="button" id="save-settings" class="btn-primary">Connect & Sync</button>
-            </div>
-        </div>
     </div>
     <script src="app.js"></script>
 </body>

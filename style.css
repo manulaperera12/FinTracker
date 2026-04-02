@@ -40,7 +40,7 @@ body {
     max-width: 480px; /* Mobile first, centered desktop */
     display: flex;
     flex-direction: column;
-    gap: 2.5rem; /* Increased overall spacing */
+    gap: 3rem; /* Max space */
     animation: fadeIn 0.8s ease-out;
 }
 
@@ -89,9 +89,15 @@ header {
     -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--glass-border);
     border-radius: 24px;
-    padding: 1.5rem;
+    padding: 1.75rem; /* Increased padding */
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
     transition: var(--transition-fast);
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem; /* Space between sections inside main */
 }
 
 /* Status Section */
@@ -190,7 +196,7 @@ header {
 .dates-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
+    gap: 1.5rem; /* Increased gap */
 }
 
 .mini-card {

@@ -12,6 +12,15 @@
 let transactions = JSON.parse(localStorage.getItem('card-tracker-tx')) || [];
 let backendUrl = localStorage.getItem('card-tracker-backend') || '';
 
+function showLoader(msg = "Syncing your data...") {
+    document.getElementById('loader-msg').innerText = msg;
+    document.getElementById('loader').classList.remove('hidden');
+}
+
+function hideLoader() {
+    document.getElementById('loader').classList.add('hidden');
+}
+
 async function saveToStorage() {
     localStorage.setItem('card-tracker-tx', JSON.stringify(transactions));
     updateUI();
@@ -26,9 +35,9 @@ async function syncToCloud() {
     
     const statusEl = document.getElementById('sync-status');
     statusEl.innerHTML = '<span class="dot"></span> Syncing...';
+    showLoader("Saving to Cloud..."); // SHOW LOADER
     
     try {
-        // Use 'no-cors' and 'text/plain' to avoid OPTIONS preflight
         await fetch(backendUrl, {
             method: 'POST',
             mode: 'no-cors',
@@ -36,21 +45,22 @@ async function syncToCloud() {
             body: JSON.stringify(transactions)
         });
         
-        // With no-cors, we can't check response.ok, so we assume success if no error is thrown
         statusEl.className = 'sync-status online';
         statusEl.innerHTML = '<span class="dot"></span> Cloud Synced';
     } catch (err) {
         statusEl.className = 'sync-status offline';
         statusEl.innerHTML = '<span class="dot"></span> Sync Error';
         console.error(err);
+    } finally {
+        hideLoader(); // HIDE LOADER
     }
 }
 
 async function loadFromCloud() {
     if (!backendUrl) return;
+    showLoader("Fetching your data..."); // SHOW LOADER
     
     try {
-        // GET requests to GAS usually work if they return a proper ContentService response
         const response = await fetch(backendUrl);
         if (response.ok) {
             const text = await response.text();
@@ -68,6 +78,8 @@ async function loadFromCloud() {
         }
     } catch (err) {
         console.error("Cloud load failed (CORS or Network)", err);
+    } finally {
+        hideLoader(); // HIDE LOADER
     }
     return false;
 }

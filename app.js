@@ -28,17 +28,17 @@ async function syncToCloud() {
     statusEl.innerHTML = '<span class="dot"></span> Syncing...';
     
     try {
-        const response = await fetch(backendUrl, {
+        // Use 'no-cors' and 'text/plain' to avoid OPTIONS preflight
+        await fetch(backendUrl, {
             method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain' },
             body: JSON.stringify(transactions)
         });
         
-        if (response.ok) {
-            statusEl.className = 'sync-status online';
-            statusEl.innerHTML = '<span class="dot"></span> Cloud Synced';
-        } else {
-            throw new Error("Sync failed");
-        }
+        // With no-cors, we can't check response.ok, so we assume success if no error is thrown
+        statusEl.className = 'sync-status online';
+        statusEl.innerHTML = '<span class="dot"></span> Cloud Synced';
     } catch (err) {
         statusEl.className = 'sync-status offline';
         statusEl.innerHTML = '<span class="dot"></span> Sync Error';
@@ -50,18 +50,24 @@ async function loadFromCloud() {
     if (!backendUrl) return;
     
     try {
+        // GET requests to GAS usually work if they return a proper ContentService response
         const response = await fetch(backendUrl);
         if (response.ok) {
-            const data = await response.json();
-            if (Array.isArray(data)) {
-                transactions = data;
-                localStorage.setItem('card-tracker-tx', JSON.stringify(transactions));
-                updateUI();
-                return true;
+            const text = await response.text();
+            try {
+                const data = JSON.parse(text);
+                if (Array.isArray(data)) {
+                    transactions = data;
+                    localStorage.setItem('card-tracker-tx', JSON.stringify(transactions));
+                    updateUI();
+                    return true;
+                }
+            } catch (e) {
+                console.warn("Cloud data is not valid JSON, might be empty.");
             }
         }
     } catch (err) {
-        console.error("Cloud load failed", err);
+        console.error("Cloud load failed (CORS or Network)", err);
     }
     return false;
 }

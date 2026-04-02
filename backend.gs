@@ -15,23 +15,30 @@ function doGet(e) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   const data = sheet.getRange(1, 1).getValue();
   
-  return ContentService.createTextOutput(data || "[]")
+  // Ensure we return valid JSON or empty array
+  var content = "[]";
+  if (data && data.trim()) {
+      content = data;
+  }
+  
+  return ContentService.createTextOutput(content)
     .setMimeType(ContentService.MimeType.JSON);
 }
 
 function doPost(e) {
-  const contents = e.postData.contents;
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  
-  // Clear and update with new JSON
-  sheet.getRange(1, 1).setValue(contents);
-  
-  return ContentService.createTextOutput(JSON.stringify({status: "success"}))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-// Add CORS support
-function doOptions(e) {
-  return ContentService.createTextOutput("")
-    .setMimeType(ContentService.MimeType.TEXT);
+  try {
+    const contents = e.postData.contents;
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    
+    // Validate contents is non-empty before saving
+    if (contents && contents.trim()) {
+        sheet.getRange(1, 1).setValue(contents);
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({status: "success"}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({status: "error", message: err.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 }

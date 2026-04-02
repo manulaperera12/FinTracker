@@ -49,15 +49,24 @@
                     </div>
                 </div>
 
-                <!-- NEW: Intelligent Daily Spending Guide -->
-                <div id="daily-guide-section" class="card coach-card glow-cyan">
+                <!-- NEW: Intelligent Daily Spending Guide (Expandable) -->
+                <div id="daily-guide-section" class="card coach-card glow-cyan clickable">
                     <div class="coach-header">
                         <span class="label">DAILY SPENDING GUIDE</span>
-                        <span class="coach-icon">🎯</span>
+                        <span id="coach-toggle">▼</span>
                     </div>
                     <div class="coach-content">
                         <h2 id="daily-limit">Rs. 0.00</h2>
-                        <p id="coach-tip">Plan your budget to get daily spending recommendations.</p>
+                        <p id="coach-tip">Plan your budget to see daily spending recommendations.</p>
+                    </div>
+                    
+                    <!-- Hidden Breakdown Details -->
+                    <div id="coach-details" class="coach-details hidden">
+                        <div class="math-step"><span>Total Spending Cash</span><span id="math-liquid">Rs. 0</span></div>
+                        <div class="math-step"><span>Minus Bill Reserve</span><span id="math-bills" class="negative">- Rs. 0</span></div>
+                        <div class="math-divider"></div>
+                        <div class="math-step primary"><span>Available Variable Pool</span><span id="math-pool">Rs. 0</span></div>
+                        <div class="math-step sub"><span>Days Remaining</span><span id="math-days">0 Days</span></div>
                     </div>
                 </div>
 

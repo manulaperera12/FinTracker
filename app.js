@@ -190,6 +190,12 @@ function updateDailyGuide(totalMandatory, totalSpentOnMandatory, liquidCash) {
 
     elLimit.innerText = `Rs. ${dailyRec.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
     
+    // Update Detailed Math
+    document.getElementById('math-liquid').innerText = `Rs. ${liquidCash.toLocaleString()}`;
+    document.getElementById('math-bills').innerText = `- Rs. ${remainingObligations.toLocaleString()}`;
+    document.getElementById('math-pool').innerText = `Rs. ${safeResidual.toLocaleString()}`;
+    document.getElementById('math-days').innerText = `${daysLeft} Days Left`;
+
     if (liquidCash < remainingObligations) {
         elLimit.style.color = "var(--danger)";
         elTip.innerText = `⚠️ Stop! You only have Rs. ${liquidCash.toLocaleString()} in spending money, but have Rs. ${remainingObligations.toLocaleString()} in remaining bills. Your savings are now your only buffer!`;
@@ -251,9 +257,22 @@ function renderAccounts(balances) {
 }
 
 function renderLedger() {
-    const sorted = [...transactions].reverse();
-    renderTransactionList('recent-transaction-list', sorted.slice(0, 8));
-    renderTransactionList('full-transaction-list', sorted);
+    const filterVal = document.getElementById('filter-account')?.value || 'all';
+    
+    // Sort transactions reverse-chronologically
+    const sortedAll = [...transactions].reverse();
+    
+    // Recent activity (Dashboard) - ALWAYS SHOW ALL
+    renderTransactionList('recent-transaction-list', sortedAll.slice(0, 8));
+    
+    // Ledger List (Filtered)
+    let filteredData = sortedAll;
+    if (filterVal !== 'all') {
+        filteredData = sortedAll.filter(tx => 
+            tx.accountId === filterVal || tx.toAccountId === filterVal
+        );
+    }
+    renderTransactionList('full-transaction-list', filteredData);
 }
 
 function renderTransactionList(id, data) {
@@ -310,6 +329,11 @@ document.querySelectorAll('.tab-btn').forEach(btn => { btn.onclick = () => { doc
 document.getElementById('prev-month').onclick = () => { currentViewDate.setMonth(currentViewDate.getMonth() - 1); updateUI(); };
 document.getElementById('next-month').onclick = () => { currentViewDate.setMonth(currentViewDate.getMonth() + 1); updateUI(); };
 document.getElementById('filter-account').onchange = () => renderLedger();
+document.getElementById('daily-guide-section').onclick = () => {
+    document.getElementById('daily-guide-section').classList.toggle('expanded');
+    document.getElementById('coach-details').classList.toggle('hidden');
+};
+
 document.getElementById('quick-add-btn').onclick = () => { document.getElementById('modal-title').innerText = "New Record"; document.getElementById('edit-id').value = ""; document.getElementById('transaction-form').reset(); document.getElementById('group-to').classList.add('hidden'); document.getElementById('modal-overlay').classList.remove('hidden'); };
 document.getElementById('add-budget-btn').onclick = () => document.getElementById('budget-modal-overlay').classList.remove('hidden');
 document.getElementById('add-account-btn').onclick = () => { document.getElementById('acc-modal-title').innerText = "Add Account"; document.getElementById('edit-acc-id').value = ""; document.getElementById('account-form').reset(); document.getElementById('account-modal-overlay').classList.remove('hidden'); };

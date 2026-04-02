@@ -220,9 +220,22 @@ function renderAccounts(balances) {
 }
 
 function renderLedger() {
-    const sorted = [...transactions].reverse();
-    renderTransactionList('recent-transaction-list', sorted.slice(0, 8));
-    renderTransactionList('full-transaction-list', sorted);
+    const filterVal = document.getElementById('filter-account')?.value || 'all';
+    
+    // Sort transactions reverse-chronologically
+    const sortedAll = [...transactions].reverse();
+    
+    // Recent activity (dashboard) - ALWAYS ALL
+    renderTransactionList('recent-transaction-list', sortedAll.slice(0, 8));
+    
+    // Filtered ledger (Ledger Tab)
+    let filteredData = sortedAll;
+    if (filterVal !== 'all') {
+        filteredData = sortedAll.filter(tx => 
+            tx.accountId === filterVal || tx.toAccountId === filterVal
+        );
+    }
+    renderTransactionList('full-transaction-list', filteredData);
 }
 
 function renderTransactionList(id, data) {
@@ -261,6 +274,7 @@ document.getElementById('type').onchange = (e) => {
 document.querySelectorAll('.tab-btn').forEach(btn => { btn.onclick = () => { document.querySelectorAll('.tab-btn, .tab-pane').forEach(el => el.classList.remove('active')); btn.classList.add('active'); document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active'); }; });
 document.getElementById('prev-month').onclick = () => { currentViewDate.setMonth(currentViewDate.getMonth() - 1); updateUI(); };
 document.getElementById('next-month').onclick = () => { currentViewDate.setMonth(currentViewDate.getMonth() + 1); updateUI(); };
+document.getElementById('filter-account').onchange = () => renderLedger();
 document.getElementById('quick-add-btn').onclick = () => { document.getElementById('modal-title').innerText = "New Record"; document.getElementById('edit-id').value = ""; document.getElementById('transaction-form').reset(); document.getElementById('group-to').classList.add('hidden'); document.getElementById('modal-overlay').classList.remove('hidden'); };
 document.getElementById('add-budget-btn').onclick = () => document.getElementById('budget-modal-overlay').classList.remove('hidden');
 document.getElementById('add-account-btn').onclick = () => document.getElementById('account-modal-overlay').classList.remove('hidden');

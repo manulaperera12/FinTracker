@@ -99,8 +99,9 @@
         <!-- Modals -->
         <div id="modal-overlay" class="modal-overlay hidden">
             <div class="modal card">
-                <h3>Add Transaction</h3>
+                <h3 id="modal-title">Add Transaction</h3>
                 <form id="transaction-form">
+                    <input type="hidden" id="edit-id">
                     <div class="form-group">
                         <label for="desc">Description</label>
                         <input type="text" id="desc" placeholder="e.g. Petrol, Groceries" required>

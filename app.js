@@ -178,13 +178,19 @@ function updateUI() {
     if (transactions.length === 0) {
         list.innerHTML = '<li class="empty-state">No transactions recorded.</li>';
     } else {
-        list.innerHTML = [...transactions].reverse().map((tx, idx) => `
+        list.innerHTML = [...transactions].reverse().map((tx) => `
             <li class="transaction-item">
                 <div class="transaction-info">
                     <span class="transaction-desc">${tx.desc}</span>
                     <span class="transaction-date">${formatter.format(new Date(tx.date))}</span>
                 </div>
-                <span class="transaction-amount">Rs. ${tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                <div class="transaction-actions">
+                    <span class="transaction-amount">Rs. ${tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                    <div class="action-btns">
+                        <button onclick="editTransaction(${tx.id})" title="Edit">✏️</button>
+                        <button onclick="removeTransaction(${tx.id})" title="Delete">🗑️</button>
+                    </div>
+                </div>
             </li>
         `).join('');
     }
@@ -196,7 +202,13 @@ const settingsOverlay = document.getElementById('settings-overlay');
 const addBtn = document.getElementById('add-transaction-btn');
 const settingsBtn = document.getElementById('open-settings');
 
-addBtn.onclick = () => modalOverlay.classList.remove('hidden');
+addBtn.onclick = () => {
+    document.getElementById('modal-title').innerText = "Add Transaction";
+    document.getElementById('edit-id').value = "";
+    document.getElementById('transaction-form').reset();
+    modalOverlay.classList.remove('hidden');
+};
+
 settingsBtn.onclick = () => {
     document.getElementById('backend-url').value = backendUrl;
     settingsOverlay.classList.remove('hidden');
@@ -207,19 +219,48 @@ document.getElementById('close-settings').onclick = () => settingsOverlay.classL
 
 document.getElementById('transaction-form').onsubmit = (e) => {
     e.preventDefault();
+    const id = document.getElementById('edit-id').value;
     const desc = document.getElementById('desc').value;
     const amount = parseFloat(document.getElementById('amount').value);
 
     if (desc && amount) {
-        transactions.push({
-            id: Date.now(),
-            desc,
-            amount,
-            date: new Date().toISOString()
-        });
+        if (id) {
+            // Edit Mode
+            const idx = transactions.findIndex(t => t.id == id);
+            if (idx !== -1) {
+                transactions[idx].desc = desc;
+                transactions[idx].amount = amount;
+            }
+        } else {
+            // Add Mode
+            transactions.push({
+                id: Date.now(),
+                desc,
+                amount,
+                date: new Date().toISOString()
+            });
+        }
         saveToStorage();
         e.target.reset();
         modalOverlay.classList.add('hidden');
+    }
+};
+
+window.editTransaction = (id) => {
+    const tx = transactions.find(t => t.id == id);
+    if (tx) {
+        document.getElementById('modal-title').innerText = "Edit Transaction";
+        document.getElementById('edit-id').value = tx.id;
+        document.getElementById('desc').value = tx.desc;
+        document.getElementById('amount').value = tx.amount;
+        modalOverlay.classList.remove('hidden');
+    }
+};
+
+window.removeTransaction = (id) => {
+    if (confirm("Delete this transaction?")) {
+        transactions = transactions.filter(t => t.id != id);
+        saveToStorage();
     }
 };
 

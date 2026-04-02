@@ -463,6 +463,15 @@ main {
 .transaction-amount {
     font-weight: 600;
     font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.05rem;
+}
+
+.transaction-amount.income {
+    color: var(--success);
+}
+
+.transaction-amount.expense {
+    color: var(--danger);
 }
 
 .empty-state {

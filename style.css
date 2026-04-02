@@ -58,19 +58,22 @@ header {
 .logo {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 1.25rem;
 }
 
-.logo .icon {
-    font-size: 1.5rem;
-    padding: 0.5rem;
-    background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-    border-radius: 12px;
+.app-logo {
+    height: 48px; /* High-res premium size */
+    width: auto;
+    filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.4));
+    transition: 0.3s;
 }
+
+.app-logo:hover { transform: scale(1.05); }
 
 .logo h1 {
-    font-size: 1.25rem;
+    font-size: 1.5rem;
     font-weight: 700;
+    letter-spacing: -0.01em;
 }
 
 .date-display {

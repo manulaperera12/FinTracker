@@ -151,6 +151,7 @@ function updateUI() {
     document.getElementById('budget-summary').innerText = `${budgetProgress}% of Rs. ${totalPlanned.toLocaleString()}`;
 
     // Render Components
+    updateDailyGuide(totalPlanned, totalSpent);
     renderAccountCarousel(balances);
     renderBudgetTab(getActiveBudgets(mKey), transactions.filter(tx => tx.type === 'expense' && getMonthKey(new Date(tx.date)) === mKey));
     renderAccounts(balances);
@@ -180,6 +181,35 @@ function updateCreditCycleInfo(cc) {
     const prevStatement = new Date(statementDate.getTime()); prevStatement.setMonth(prevStatement.getMonth() - 1);
     const progressPercent = Math.min(100, Math.max(0, ((now - prevStatement) / (statementDate - prevStatement)) * 100));
     document.getElementById('cycle-progress').style.width = `${progressPercent}%`; document.getElementById('cycle-progress').style.background = zone.color;
+}
+
+function updateDailyGuide(totalPlanned, totalSpent) {
+    const elLimit = document.getElementById('daily-limit');
+    const elTip = document.getElementById('coach-tip');
+    if (!elLimit || !elTip) return;
+
+    if (totalPlanned === 0) {
+        elLimit.innerText = "Rs. 0.00";
+        elTip.innerText = "Add a Budget Goal to see your daily safe spending limit.";
+        return;
+    }
+
+    const now = new Date();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const daysLeft = Math.max(1, lastDay - now.getDate() + 1);
+
+    const remainingBudget = totalPlanned - totalSpent;
+    const dailyRec = Math.max(0, remainingBudget / daysLeft);
+
+    elLimit.innerText = `Rs. ${dailyRec.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+    
+    if (remainingBudget <= 0) {
+        elLimit.style.color = "var(--danger)";
+        elTip.innerText = "⚠️ You are over-budget! Try to minimize spending for the rest of the month.";
+    } else {
+        elLimit.style.color = "var(--accent-cyan)";
+        elTip.innerText = `You have Rs. ${remainingBudget.toLocaleString()} left for the next ${daysLeft} days. Don't worry! you've got this!`;
+    }
 }
 
 function renderAccountCarousel(balances) {

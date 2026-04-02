@@ -551,6 +551,38 @@ main {
     font-size: 0.9rem;
 }
 
+/* Financial Coach Card */
+.coach-card {
+    background: linear-gradient(135deg, rgba(34, 211, 238, 0.05), rgba(30, 41, 59, 0.7));
+    border-color: rgba(34, 211, 238, 0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.glow-cyan { border-color: rgba(34, 211, 238, 0.3); box-shadow: 0 0 20px rgba(34, 211, 238, 0.1); }
+
+.coach-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.coach-icon { font-size: 1.5rem; }
+
+.coach-content h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0.25rem 0;
+}
+
+.coach-content p {
+    font-size: 0.85rem;
+    color: var(--text-gray);
+    line-height: 1.4;
+}
+
 /* Carousel Styles */
 .carousel-container {
     margin-top: 0.5rem;

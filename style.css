@@ -505,17 +505,38 @@ main {
 
 .form-group label { font-size: 0.85rem; color: var(--text-gray); }
 
-input {
-    background: rgba(15, 23, 42, 0.5);
+input, select {
+    background: rgba(15, 23, 42, 0.6);
     border: 1px solid var(--glass-border);
-    border-radius: 12px;
-    padding: 1rem;
+    border-radius: 14px;
+    padding: 0.85rem 1rem;
     color: white;
     font-family: inherit;
+    font-size: 0.95rem;
     outline: none;
+    transition: var(--transition-fast);
+    appearance: none; /* Premium custom look */
 }
 
-input:focus { border-color: var(--accent-blue); }
+select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 1rem;
+    padding-right: 2.5rem;
+    cursor: pointer;
+}
+
+input:focus, select:focus { 
+    border-color: var(--accent-blue); 
+    background: rgba(15, 23, 42, 0.8);
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+}
+
+select option {
+    background: #1e293b;
+    color: white;
+}
 
 .form-actions {
     display: flex;

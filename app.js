@@ -4,10 +4,20 @@
  */
 
 // --- DATA MANAGEMENT ---
-let transactions = JSON.parse(localStorage.getItem('fintracker-tx')) || [];
-let accounts = JSON.parse(localStorage.getItem('fintracker-accounts')) || [
-    { id: 'default-cc', name: 'ComBank Platinum', type: 'credit', balance: 0, billingDay: 20 }
+// Default starting data for the user
+const DEFAULT_ACCOUNTS = [
+    { id: 'acc-cc', name: 'ComBank Platinum', type: 'credit', balance: 0, billingDay: 20 },
+    { id: 'acc-savings', name: 'Savings Account', type: 'bank', balance: 50000 },
+    { id: 'acc-cash', name: 'Cash Wallet', type: 'cash', balance: 2500 }
 ];
+
+const DEFAULT_TRANSACTIONS = [
+    { id: 1, accountId: 'acc-savings', desc: 'Sample Salary', amount: 85000, type: 'income', date: new Date().toISOString() },
+    { id: 2, accountId: 'acc-savings', desc: 'Rent Payment', amount: 30000, type: 'expense', date: new Date().toISOString() }
+];
+
+let transactions = JSON.parse(localStorage.getItem('fintracker-tx')) || DEFAULT_TRANSACTIONS;
+let accounts = JSON.parse(localStorage.getItem('fintracker-accounts')) || DEFAULT_ACCOUNTS;
 let backendUrl = localStorage.getItem('card-tracker-backend') || '';
 
 function showLoader(msg = "Syncing...") {

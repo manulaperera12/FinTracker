@@ -216,7 +216,21 @@ function renderBudgetTab(activeBudgets, monthExpenses) {
 
 function renderAccounts(balances) {
     const accList = document.getElementById('account-list');
-    accList.innerHTML = accounts.map(acc => `<div class="acc-card"><div class="acc-info"><h4>${acc.name}</h4><span>${acc.type}</span></div><div class="acc-balance ${balances[acc.id] < 0 ? 'negative' : ''}">Rs. ${balances[acc.id].toLocaleString(undefined, {minimumFractionDigits: 2})}</div></div>`).join('');
+    accList.innerHTML = accounts.map(acc => `
+        <div class="acc-card">
+            <div class="acc-info">
+                <h4>${acc.name}</h4>
+                <span>${acc.type}</span>
+                <p class="acc-balance ${balances[acc.id] < 0 ? 'negative' : ''}">
+                    Rs. ${balances[acc.id].toLocaleString(undefined, {minimumFractionDigits: 2})}
+                </p>
+            </div>
+            <div class="action-btns">
+                <button onclick="editAccount('${acc.id}')" class="edit-btn">✏️</button>
+                <button onclick="removeAccount('${acc.id}')" class="delete-btn">🗑️</button>
+            </div>
+        </div>
+    `).join('');
 }
 
 function renderLedger() {
@@ -277,7 +291,12 @@ document.getElementById('next-month').onclick = () => { currentViewDate.setMonth
 document.getElementById('filter-account').onchange = () => renderLedger();
 document.getElementById('quick-add-btn').onclick = () => { document.getElementById('modal-title').innerText = "New Record"; document.getElementById('edit-id').value = ""; document.getElementById('transaction-form').reset(); document.getElementById('group-to').classList.add('hidden'); document.getElementById('modal-overlay').classList.remove('hidden'); };
 document.getElementById('add-budget-btn').onclick = () => document.getElementById('budget-modal-overlay').classList.remove('hidden');
-document.getElementById('add-account-btn').onclick = () => document.getElementById('account-modal-overlay').classList.remove('hidden');
+document.getElementById('add-account-btn').onclick = () => {
+    document.getElementById('acc-modal-title').innerText = "Add Account";
+    document.getElementById('edit-acc-id').value = "";
+    document.getElementById('account-form').reset();
+    document.getElementById('account-modal-overlay').classList.remove('hidden');
+};
 document.getElementById('close-modal').onclick = () => document.getElementById('modal-overlay').classList.add('hidden');
 document.getElementById('close-bud-modal').onclick = () => document.getElementById('budget-modal-overlay').classList.add('hidden');
 document.getElementById('close-acc-modal').onclick = () => document.getElementById('account-modal-overlay').classList.add('hidden');
@@ -304,7 +323,27 @@ document.getElementById('transaction-form').onsubmit = (e) => {
     document.getElementById('modal-overlay').classList.add('hidden');
 };
 
-document.getElementById('account-form').onsubmit = (e) => { e.preventDefault(); accounts.push({ id: 'acc-' + Date.now(), name: document.getElementById('acc-name').value, type: document.getElementById('acc-type').value, balance: parseFloat(document.getElementById('acc-balance').value), billingDay: parseInt(document.getElementById('billing-day').value) || 20 }); saveToStorage(); document.getElementById('account-modal-overlay').classList.add('hidden'); };
+document.getElementById('account-form').onsubmit = (e) => {
+    e.preventDefault();
+    const id = document.getElementById('edit-acc-id').value;
+    const acc = {
+        id: id ? id : 'acc-' + Date.now(),
+        name: document.getElementById('acc-name').value,
+        type: document.getElementById('acc-type').value,
+        balance: parseFloat(document.getElementById('acc-balance').value),
+        billingDay: parseInt(document.getElementById('billing-day').value) || 20
+    };
+    
+    if (id) {
+        const idx = accounts.findIndex(a => a.id === id);
+        accounts[idx] = acc;
+    } else {
+        accounts.push(acc);
+    }
+    
+    saveToStorage();
+    document.getElementById('account-modal-overlay').classList.add('hidden');
+};
 
 (async function init() {
     if (backendUrl) await loadFromCloud();
@@ -313,6 +352,27 @@ document.getElementById('account-form').onsubmit = (e) => { e.preventDefault(); 
 })();
 
 window.deleteBudget = (id, monthKey) => { if (confirm("Remove this goal?")) { const bud = budgetPlans.find(b => b.id === id); if (bud && bud.recurring && bud.monthKey < monthKey) budgetPlans.push({ ...bud, id: 'over-' + Date.now(), amount: 0, monthKey, recurring: false }); else budgetPlans = budgetPlans.filter(b => b.id !== id); saveToStorage(); } };
+
+window.removeAccount = (id) => {
+    if (confirm("Delete this account and all its transactions? This cannot be undone.")) {
+        accounts = accounts.filter(a => a.id !== id);
+        transactions = transactions.filter(t => t.accountId !== id && t.toAccountId !== id);
+        saveToStorage();
+    }
+};
+
+window.editAccount = (id) => {
+    const acc = accounts.find(a => a.id === id);
+    if (!acc) return;
+    document.getElementById('acc-modal-title').innerText = "Edit Account";
+    document.getElementById('edit-acc-id').value = acc.id;
+    document.getElementById('acc-name').value = acc.name;
+    document.getElementById('acc-type').value = acc.type;
+    document.getElementById('acc-balance').value = acc.balance;
+    document.getElementById('billing-day').value = acc.billingDay || 20;
+    document.getElementById('credit-fields').classList.toggle('hidden', acc.type !== 'credit');
+    document.getElementById('account-modal-overlay').classList.remove('hidden');
+};
 window.removeTransaction = (id) => { if (confirm("Delete?")) { transactions = transactions.filter(t => t.id != id); saveToStorage(); } };
 window.editTransaction = (id) => {
     const tx = transactions.find(t => t.id == id); if (!tx) return;

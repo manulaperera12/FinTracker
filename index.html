@@ -199,8 +199,9 @@
         <!-- Account Modal -->
         <div id="account-modal-overlay" class="modal-overlay hidden">
             <div class="modal card">
-                <h3>Add Account</h3>
+                <h3 id="acc-modal-title">Add Account</h3>
                 <form id="account-form">
+                    <input type="hidden" id="edit-acc-id">
                     <div class="form-group">
                         <label for="acc-name">Account Name</label>
                         <input type="text" id="acc-name" placeholder="e.g. HNB Savings" required>

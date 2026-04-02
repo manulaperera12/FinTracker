@@ -30,6 +30,7 @@
 
         <nav class="main-tabs">
             <button class="tab-btn active" data-tab="overview">Dashboard</button>
+            <button class="tab-btn" data-tab="budget">Budget</button>
             <button class="tab-btn" data-tab="accounts">Accounts</button>
             <button class="tab-btn" data-tab="ledger">Ledger</button>
         </nav>
@@ -42,9 +43,9 @@
                         <span class="label">Net Assets</span>
                         <h2 id="net-worth" class="money">Rs. 0.00</h2>
                     </div>
-                    <div class="card summary-card glow-pink">
-                        <span class="label">Monthly Spending</span>
-                        <h2 id="monthly-spending" class="money">Rs. 0.00</h2>
+                    <div class="card summary-card glow-purple">
+                        <span class="label">Budget Progress</span>
+                        <h2 id="budget-summary" class="money">0% Limit</h2>
                     </div>
                 </div>
 
@@ -80,7 +81,20 @@
                 </div>
             </section>
 
-            <!-- TAB: ACCOUNTS -->
+            <!-- TAB: BUDGET -->
+            <section id="tab-budget" class="tab-pane">
+                <div class="section-header">
+                    <div class="month-selector">
+                        <button id="prev-month">◀</button>
+                        <h2 id="current-budget-month">April 2026</h2>
+                        <button id="next-month">▶</button>
+                    </div>
+                    <button id="add-budget-btn" class="btn-primary">+ Add Goal</button>
+                </div>
+                <div id="budget-list" class="budget-grid">
+                    <!-- Injected by JS -->
+                </div>
+            </section>
             <section id="tab-accounts" class="tab-pane">
                 <div class="section-header">
                     <h2>Your Accounts</h2>
@@ -139,6 +153,31 @@
                     <div class="form-actions">
                         <button type="button" id="close-modal" class="btn-secondary">Cancel</button>
                         <button type="submit" class="btn-primary">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Budget Modal -->
+        <div id="budget-modal-overlay" class="modal-overlay hidden">
+            <div class="modal card">
+                <h3>Set Budget Goal</h3>
+                <form id="budget-form">
+                    <div class="form-group">
+                        <label for="bud-name">Category/Goal Name</label>
+                        <input type="text" id="bud-name" placeholder="e.g. Groceries, Fuel" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="bud-amount">Monthly Limit (Rs.)</label>
+                        <input type="number" id="bud-amount" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group row">
+                        <input type="checkbox" id="bud-recurring" checked>
+                        <label for="bud-recurring">Apply to all future months</label>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" id="close-bud-modal" class="btn-secondary">Cancel</button>
+                        <button type="submit" class="btn-primary">Save Goal</button>
                     </div>
                 </form>
             </div>

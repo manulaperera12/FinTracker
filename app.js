@@ -1,13 +1,12 @@
 /**
- * FINTRACKER - Unified Bank & Credit Dashboard
- * Inspired by SpendSense and Card Tracker
+ * FINTRACKER - Unified Bank, Credit & Budget Dashboard
  */
 
 // --- DATA MANAGEMENT ---
-// Default starting data for the user
+// Default starting data
 const DEFAULT_ACCOUNTS = [
-    { id: 'acc-cc', name: 'ComBank Platinum', type: 'credit', balance: 0, billingDay: 20 },
     { id: 'acc-savings', name: 'Savings Account', type: 'bank', balance: 50000 },
+    { id: 'acc-cc', name: 'ComBank Platinum', type: 'credit', balance: 0, billingDay: 20 },
     { id: 'acc-cash', name: 'Cash Wallet', type: 'cash', balance: 2500 }
 ];
 
@@ -18,7 +17,13 @@ const DEFAULT_TRANSACTIONS = [
 
 let transactions = JSON.parse(localStorage.getItem('fintracker-tx')) || DEFAULT_TRANSACTIONS;
 let accounts = JSON.parse(localStorage.getItem('fintracker-accounts')) || DEFAULT_ACCOUNTS;
+let budgetPlans = JSON.parse(localStorage.getItem('fintracker-budgets')) || [];
 let backendUrl = localStorage.getItem('card-tracker-backend') || '';
+let currentViewDate = new Date();
+
+function getMonthKey(date) {
+    return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+}
 
 function showLoader(msg = "Syncing...") {
     const el = document.getElementById('loader');
@@ -36,6 +41,7 @@ function hideLoader() {
 async function saveToStorage() {
     localStorage.setItem('fintracker-tx', JSON.stringify(transactions));
     localStorage.setItem('fintracker-accounts', JSON.stringify(accounts));
+    localStorage.setItem('fintracker-budgets', JSON.stringify(budgetPlans));
     updateUI();
     if (backendUrl) syncToCloud();
 }
@@ -43,12 +49,12 @@ async function saveToStorage() {
 async function syncToCloud() {
     if (!backendUrl) return;
     const statusEl = document.getElementById('sync-status');
-    statusEl.className = 'sync-status'; // Reset
+    statusEl.className = 'sync-status';
     statusEl.innerHTML = '<span class="dot"></span> Syncing...';
     showLoader("Cloud Syncing...");
     
     try {
-        const payload = { transactions, accounts };
+        const payload = { transactions, accounts, budgetPlans };
         await fetch(backendUrl, {
             method: 'POST',
             mode: 'no-cors',
@@ -68,10 +74,7 @@ async function syncToCloud() {
 async function loadFromCloud() {
     if (!backendUrl) return;
     const statusEl = document.getElementById('sync-status');
-    statusEl.className = 'sync-status';
-    statusEl.innerHTML = '<span class="dot"></span> Fetching...';
     showLoader("Refreshing...");
-    
     try {
         const response = await fetch(backendUrl);
         if (response.ok) {
@@ -79,9 +82,10 @@ async function loadFromCloud() {
             if (data.transactions && data.accounts) {
                 transactions = data.transactions;
                 accounts = data.accounts;
+                budgetPlans = data.budgetPlans || [];
                 localStorage.setItem('fintracker-tx', JSON.stringify(transactions));
                 localStorage.setItem('fintracker-accounts', JSON.stringify(accounts));
-                
+                localStorage.setItem('fintracker-budgets', JSON.stringify(budgetPlans));
                 statusEl.className = 'sync-status online';
                 statusEl.innerHTML = '<span class="dot"></span> Cloud Online';
                 updateUI();
@@ -91,19 +95,17 @@ async function loadFromCloud() {
     } catch (err) { 
         statusEl.className = 'sync-status offline';
         statusEl.innerHTML = '<span class="dot"></span> Offline';
-        console.error(err); 
     }
     finally { hideLoader(); }
     return false;
 }
 
-// --- CORE UTILS ---
+// --- LOGIC ---
 const formatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
 function calculateAccountBalances() {
     const balances = {};
     accounts.forEach(acc => balances[acc.id] = parseFloat(acc.balance) || 0);
-    
     transactions.forEach(tx => {
         if (balances[tx.accountId] !== undefined) {
             if (tx.type === 'income') balances[tx.accountId] += tx.amount;
@@ -113,29 +115,95 @@ function calculateAccountBalances() {
     return balances;
 }
 
-// --- UI LOGIC ---
+function getActiveBudgets(monthKey) {
+    // Current month's actual plans
+    let active = budgetPlans.filter(p => p.monthKey === monthKey);
+    
+    // Find missing categories from previous recurring plans
+    const recurringSources = budgetPlans.filter(p => p.recurring && p.monthKey < monthKey);
+    recurringSources.forEach(source => {
+        if (!active.find(a => a.name === source.name)) {
+            // Virtual recurring budget
+            active.push({ ...source, monthKey, virtual: true });
+        }
+    });
+    return active;
+}
+
+// --- UI UPDATES ---
 function updateUI() {
     const balances = calculateAccountBalances();
     const now = new Date();
     document.getElementById('today-date').innerText = formatter.format(now);
 
-    // Summary
+    const mKey = getMonthKey(currentViewDate);
+    const viewMonthStr = currentViewDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    document.getElementById('current-budget-month').innerText = viewMonthStr;
+
+    // Summary Calculations
     const netWorth = Object.values(balances).reduce((a, b) => a + b, 0);
-    const monthlySpend = transactions
-        .filter(tx => tx.type === 'expense' && new Date(tx.date).getMonth() === now.getMonth())
-        .reduce((sum, tx) => sum + tx.amount, 0);
+    const monthExpenses = transactions.filter(tx => tx.type === 'expense' && getMonthKey(new Date(tx.date)) === mKey);
+    const totalSpent = monthExpenses.reduce((s, tx) => s + tx.amount, 0);
+
+    const activeBudgets = getActiveBudgets(mKey);
+    const totalPlanned = activeBudgets.reduce((s, b) => s + b.amount, 0);
+    const budgetProgress = totalPlanned > 0 ? Math.min(100, Math.round((totalSpent / totalPlanned) * 100)) : 0;
 
     document.getElementById('net-worth').innerText = `Rs. ${netWorth.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-    document.getElementById('monthly-spending').innerText = `Rs. ${monthlySpend.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+    document.getElementById('budget-summary').innerText = `${budgetProgress}% of Rs. ${totalPlanned.toLocaleString()}`;
 
-    // Transaction Lists
-    renderList('recent-transaction-list', transactions.slice(-5).reverse());
-    renderList('full-transaction-list', transactions.slice().reverse());
+    // Render Tabs
+    renderBudgetTab(activeBudgets, monthExpenses);
+    renderAccounts(balances);
+    renderLedger();
+    
+    // Quick Add Sync
+    updateDropdowns();
+}
 
-    // Account List
+function renderBudgetTab(activeBudgets, monthExpenses) {
+    const list = document.getElementById('budget-list');
+    if (activeBudgets.length === 0) {
+        list.innerHTML = '<li class="empty-state">No budget goals for this month.</li>';
+        return;
+    }
+
+    list.innerHTML = activeBudgets.map(bud => {
+        // Find spending for this specific category (simple match on description or tags)
+        // For now, let's assume category matches description prefix or exact match
+        const spentVal = monthExpenses
+            .filter(tx => tx.desc.toLowerCase().includes(bud.name.toLowerCase()))
+            .reduce((s, tx) => s + tx.amount, 0);
+        
+        const prog = bud.amount > 0 ? Math.min(100, (spentVal / bud.amount) * 100) : 0;
+        const color = spentVal > bud.amount ? 'var(--danger)' : 'var(--success)';
+
+        return `
+        <div class="budget-card">
+            <div class="bud-header">
+                <div class="bud-info">
+                    <h4>${bud.name}</h4>
+                    <span>${bud.virtual ? '🔄 Recurring Plan' : '📝 Monthly Specific'}</span>
+                </div>
+                <div class="bud-stats">
+                    <span class="bud-stat-val" style="color: ${color}">Rs. ${spentVal.toLocaleString()}</span>
+                    <span class="bud-limit">of Rs. ${bud.amount.toLocaleString()}</span>
+                </div>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: ${prog}%; background: ${color}"></div>
+            </div>
+            <div class="action-btns" style="justify-content: flex-end; margin-top: 0.5rem">
+                <button onclick="deleteBudget('${bud.id}', '${bud.monthKey}')" class="delete-btn">🗑️</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function renderAccounts(balances) {
     const accList = document.getElementById('account-list');
     accList.innerHTML = accounts.map(acc => `
-        <div class="acc-card" onclick="openAccountDetails('${acc.id}')">
+        <div class="acc-card">
             <div class="acc-info">
                 <h4>${acc.name}</h4>
                 <span>${acc.type}</span>
@@ -145,58 +213,26 @@ function updateUI() {
             </div>
         </div>
     `).join('');
-
-    // Update Dropdowns
-    const selects = ['account-select', 'filter-account'];
-    selects.forEach(sid => {
-        const el = document.getElementById(sid);
-        if (!el) return;
-        const currentVal = el.value;
-        let html = sid === 'filter-account' ? '<option value="all">All Accounts</option>' : '';
-        html += accounts.map(acc => `<option value="${acc.id}">${acc.name}</option>`).join('');
-        el.innerHTML = html;
-        if (currentVal) el.value = currentVal;
-    });
-
-    // Credit Card Cycle Logic (First Credit Card found)
-    const cc = accounts.find(a => a.type === 'credit');
-    const cycleSection = document.getElementById('card-cycle-section');
-    if (cc) {
-        cycleSection.classList.remove('hidden');
-        updateCycleUI(cc);
-    } else {
-        cycleSection.classList.add('hidden');
-    }
 }
 
-function updateCycleUI(cc) {
-    const bDay = cc.billingDay || 20;
-    const now = new Date();
-    const today = now.getDate();
-    let statementDate = new Date(now.getFullYear(), now.getMonth() + (today > bDay ? 1 : 0), bDay);
-    const dueDate = new Date(statementDate.getTime() + (20 * 24 * 60 * 60 * 1000));
-    
-    document.getElementById('cycle-account-name').innerText = `${cc.name.toUpperCase()} CYCLE`;
-    document.getElementById('days-remaining').innerText = `${Math.ceil((statementDate - now) / 86400000)} days left`;
-    
-    const progress = Math.min(100, Math.max(0, (today / 30) * 100)); // Simple calc
-    document.getElementById('cycle-progress').style.width = `${progress}%`;
+function renderLedger() {
+    const sorted = [...transactions].reverse();
+    renderTransactionList('recent-transaction-list', sorted.slice(0, 5));
+    renderTransactionList('full-transaction-list', sorted);
 }
 
-function renderList(id, listData) {
+function renderTransactionList(id, data) {
     const list = document.getElementById(id);
     if (!list) return;
-    if (listData.length === 0) {
-        list.innerHTML = '<li class="empty-state">No transactions yet.</li>';
-        return;
-    }
-    list.innerHTML = listData.map(tx => {
-        const accName = accounts.find(a => a.id === tx.accountId)?.name || 'Unknown';
+    if (data.length === 0) { list.innerHTML = '<li class="empty-state">No records.</li>'; return; }
+    
+    list.innerHTML = data.map(tx => {
+        const acc = accounts.find(a => a.id === tx.accountId)?.name || 'Unknown';
         return `
         <li class="transaction-item">
             <div class="transaction-info">
                 <span class="transaction-desc">${tx.desc}</span>
-                <span class="transaction-date">${accName} • ${formatter.format(new Date(tx.date))}</span>
+                <span class="transaction-date">${acc} • ${formatter.format(new Date(tx.date))}</span>
             </div>
             <div class="transaction-actions">
                 <span class="transaction-amount ${tx.type}">${tx.type === 'income' ? '+' : ''}Rs. ${tx.amount.toLocaleString()}</span>
@@ -209,7 +245,18 @@ function renderList(id, listData) {
     }).join('');
 }
 
-// --- TABS & MODALS ---
+function updateDropdowns() {
+    const selects = ['account-select', 'filter-account'];
+    selects.forEach(sid => {
+        const el = document.getElementById(sid);
+        if (!el) return;
+        let html = sid === 'filter-account' ? '<option value="all">All Accounts</option>' : '';
+        html += accounts.map(acc => `<option value="${acc.id}">${acc.name}</option>`).join('');
+        el.innerHTML = html;
+    });
+}
+
+// --- EVENTS ---
 document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.onclick = () => {
         document.querySelectorAll('.tab-btn, .tab-pane').forEach(el => el.classList.remove('active'));
@@ -218,6 +265,9 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     };
 });
 
+document.getElementById('prev-month').onclick = () => { currentViewDate.setMonth(currentViewDate.getMonth() - 1); updateUI(); };
+document.getElementById('next-month').onclick = () => { currentViewDate.setMonth(currentViewDate.getMonth() + 1); updateUI(); };
+
 document.getElementById('quick-add-btn').onclick = () => {
     document.getElementById('modal-title').innerText = "Add Transaction";
     document.getElementById('edit-id').value = "";
@@ -225,18 +275,29 @@ document.getElementById('quick-add-btn').onclick = () => {
     document.getElementById('modal-overlay').classList.remove('hidden');
 };
 
-document.getElementById('add-account-btn').onclick = () => {
-    document.getElementById('account-modal-overlay').classList.remove('hidden');
+document.getElementById('add-budget-btn').onclick = () => {
+    document.getElementById('budget-modal-overlay').classList.remove('hidden');
 };
 
 document.getElementById('close-modal').onclick = () => document.getElementById('modal-overlay').classList.add('hidden');
+document.getElementById('close-bud-modal').onclick = () => document.getElementById('budget-modal-overlay').classList.add('hidden');
 document.getElementById('close-acc-modal').onclick = () => document.getElementById('account-modal-overlay').classList.add('hidden');
 
-document.getElementById('acc-type').onchange = (e) => {
-    document.getElementById('credit-fields').classList.toggle('hidden', e.target.value !== 'credit');
+// --- FORM SUBMITS ---
+document.getElementById('budget-form').onsubmit = (e) => {
+    e.preventDefault();
+    const plan = {
+        id: 'bud-' + Date.now(),
+        name: document.getElementById('bud-name').value,
+        amount: parseFloat(document.getElementById('bud-amount').value),
+        monthKey: getMonthKey(currentViewDate),
+        recurring: document.getElementById('bud-recurring').checked
+    };
+    budgetPlans.push(plan);
+    saveToStorage();
+    document.getElementById('budget-modal-overlay').classList.add('hidden');
 };
 
-// --- FORMS ---
 document.getElementById('transaction-form').onsubmit = (e) => {
     e.preventDefault();
     const id = document.getElementById('edit-id').value;
@@ -248,70 +309,52 @@ document.getElementById('transaction-form').onsubmit = (e) => {
         type: document.getElementById('type').value,
         date: id ? transactions.find(t => t.id == id).date : new Date().toISOString()
     };
-
     if (id) {
         const idx = transactions.findIndex(t => t.id == id);
         transactions[idx] = tx;
-    } else {
-        transactions.push(tx);
-    }
+    } else { transactions.push(tx); }
     saveToStorage();
     document.getElementById('modal-overlay').classList.add('hidden');
 };
 
 document.getElementById('account-form').onsubmit = (e) => {
     e.preventDefault();
-    const acc = {
+    accounts.push({
         id: 'acc-' + Date.now(),
         name: document.getElementById('acc-name').value,
         type: document.getElementById('acc-type').value,
         balance: parseFloat(document.getElementById('acc-balance').value),
-        billingDay: parseInt(document.getElementById('billing-day').value)
-    };
-    accounts.push(acc);
+        billingDay: parseInt(document.getElementById('billing-day').value) || 20
+    });
     saveToStorage();
     document.getElementById('account-modal-overlay').classList.add('hidden');
 };
 
 // --- INITIALIZE ---
 (async function init() {
-    const statusEl = document.getElementById('sync-status');
-    if (backendUrl) {
-        statusEl.className = 'sync-status';
-        statusEl.innerHTML = '<span class="dot"></span> Connecting...';
-        await loadFromCloud();
-    } else {
-        statusEl.className = 'sync-status';
+    if (backendUrl) await loadFromCloud();
+    else {
+        const statusEl = document.getElementById('sync-status');
         statusEl.innerHTML = '<span class="dot"></span> Local Mode';
     }
     updateUI();
 })();
 
-// Re-using old sync triggers for convenience
-document.getElementById('open-settings').onclick = () => {
-    document.getElementById('backend-url').value = backendUrl;
-    document.getElementById('settings-overlay').classList.remove('hidden');
-};
-document.getElementById('close-settings').onclick = () => document.getElementById('settings-overlay').classList.add('hidden');
-document.getElementById('save-settings').onclick = async () => {
-    backendUrl = document.getElementById('backend-url').value.trim();
-    localStorage.setItem('card-tracker-backend', backendUrl);
-    await syncToCloud();
-    document.getElementById('settings-overlay').classList.add('hidden');
-};
-document.getElementById('clear-data').onclick = () => {
-    if(confirm("Wipe all data?")) {
-        transactions = [];
-        accounts = [{ id: 'default-cc', name: 'ComBank Platinum', type: 'credit', balance: 0, billingDay: 20 }];
+window.deleteBudget = (id, monthKey) => {
+    if (confirm("Remove this goal?")) {
+        const bud = budgetPlans.find(b => b.id === id);
+        if (bud && bud.recurring && bud.monthKey < monthKey) {
+            // It's a virtual recurring item being overridden/deleted for this specific month
+            budgetPlans.push({ ...bud, id: 'over-' + Date.now(), amount: 0, monthKey, recurring: false });
+        } else {
+            budgetPlans = budgetPlans.filter(b => b.id !== id);
+        }
         saveToStorage();
     }
 };
 
 window.removeTransaction = (id) => {
-    if (confirm("Delete?")) {
-        transactions = transactions.filter(t => t.id != id);
-        saveToStorage();
-    }
+    if (confirm("Delete?")) { transactions = transactions.filter(t => t.id != id); saveToStorage(); }
 };
 
 window.editTransaction = (id) => {
@@ -324,4 +367,20 @@ window.editTransaction = (id) => {
     document.getElementById('amount').value = tx.amount;
     document.getElementById('type').value = tx.type;
     document.getElementById('modal-overlay').classList.remove('hidden');
+};
+
+// Sync triggers
+document.getElementById('open-settings').onclick = () => { document.getElementById('backend-url').value = backendUrl; document.getElementById('settings-overlay').classList.remove('hidden'); };
+document.getElementById('close-settings').onclick = () => document.getElementById('settings-overlay').classList.add('hidden');
+document.getElementById('save-settings').onclick = async () => {
+    backendUrl = document.getElementById('backend-url').value.trim();
+    localStorage.setItem('card-tracker-backend', backendUrl);
+    await syncToCloud();
+    document.getElementById('settings-overlay').classList.add('hidden');
+};
+document.getElementById('clear-data').onclick = () => {
+    if(confirm("Wipe all data?")) {
+        transactions = []; accounts = DEFAULT_ACCOUNTS; budgetPlans = [];
+        saveToStorage();
+    }
 };

@@ -547,6 +547,41 @@ main {
     font-size: 0.9rem;
 }
 
+/* Carousel Styles */
+.carousel-container {
+    margin-top: 0.5rem;
+}
+
+.account-carousel {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    padding: 0.5rem 0.25rem 1.5rem 0.25rem;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none; /* Hide for Firefox */
+}
+
+.account-carousel::-webkit-scrollbar { display: none; } /* Hide for Chrome */
+
+.carousel-card {
+    flex: 0 0 160px; /* Large enough for amount, small enough for multi-view */
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    padding: 1.25rem;
+    border-radius: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    scroll-snap-align: start;
+    transition: var(--transition-fast);
+}
+
+.carousel-card:hover { transform: translateY(-3px); border-color: var(--accent-blue); }
+
+.carousel-card h4 { font-size: 0.85rem; color: var(--text-gray); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
+.carousel-card .amount { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1rem; color: var(--text-white); }
+.carousel-card .type { font-size: 0.65rem; color: var(--accent-cyan); text-transform: uppercase; }
+
 /* Modals */
 .modal-overlay {
     position: fixed;

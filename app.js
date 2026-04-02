@@ -148,6 +148,7 @@ function updateUI() {
     document.getElementById('budget-summary').innerText = `${budgetProgress}% of Rs. ${totalPlanned.toLocaleString()}`;
 
     // Render Components
+    renderAccountCarousel(balances);
     renderBudgetTab(getActiveBudgets(mKey), transactions.filter(tx => tx.type === 'expense' && getMonthKey(new Date(tx.date)) === mKey));
     renderAccounts(balances);
     renderLedger();
@@ -201,6 +202,18 @@ function updateCreditCycleInfo(cc) {
     
     document.getElementById('cycle-progress').style.width = `${progressPercent}%`;
     document.getElementById('cycle-progress').style.background = zone.color;
+}
+
+function renderAccountCarousel(balances) {
+    const list = document.getElementById('dash-account-carousel');
+    if (!list) return;
+    list.innerHTML = accounts.map(acc => `
+        <div class="carousel-card">
+            <h4>${acc.name}</h4>
+            <span class="amount ${balances[acc.id] < 0 ? 'negative' : ''}">Rs. ${balances[acc.id].toLocaleString()}</span>
+            <span class="type">${acc.type}</span>
+        </div>
+    `).join('');
 }
 
 function renderBudgetTab(activeBudgets, monthExpenses) {

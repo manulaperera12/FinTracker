@@ -151,7 +151,7 @@ function updateUI() {
     document.getElementById('budget-summary').innerText = `${budgetProgress}% of Rs. ${totalPlanned.toLocaleString()}`;
 
     // Render Components
-    updateDailyGuide(totalPlanned, totalSpent);
+    updateDailyGuide(totalPlanned, totalSpent, netWorth);
     renderAccountCarousel(balances);
     renderBudgetTab(getActiveBudgets(mKey), transactions.filter(tx => tx.type === 'expense' && getMonthKey(new Date(tx.date)) === mKey));
     renderAccounts(balances);
@@ -183,14 +183,14 @@ function updateCreditCycleInfo(cc) {
     document.getElementById('cycle-progress').style.width = `${progressPercent}%`; document.getElementById('cycle-progress').style.background = zone.color;
 }
 
-function updateDailyGuide(totalPlanned, totalSpent) {
+function updateDailyGuide(totalPlanned, totalSpent, netAssets) {
     const elLimit = document.getElementById('daily-limit');
     const elTip = document.getElementById('coach-tip');
     if (!elLimit || !elTip) return;
 
     if (totalPlanned === 0) {
         elLimit.innerText = "Rs. 0.00";
-        elTip.innerText = "Add a Budget Goal to see your daily safe spending limit.";
+        elTip.innerText = "Add your must-spend goals (Leases, Rent) to reserve that money first.";
         return;
     }
 
@@ -198,17 +198,21 @@ function updateDailyGuide(totalPlanned, totalSpent) {
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const daysLeft = Math.max(1, lastDay - now.getDate() + 1);
 
-    const remainingBudget = totalPlanned - totalSpent;
-    const dailyRec = Math.max(0, remainingBudget / daysLeft);
+    // Reserved money = unpaid portions of your mandatory budgets
+    const unpaidMandatory = Math.max(0, totalPlanned - totalSpent);
+    
+    // Liquid available = Your assets - what you MUST still pay this month
+    const liquidAvailable = netAssets - unpaidMandatory;
+    const dailyRec = Math.max(0, liquidAvailable / daysLeft);
 
     elLimit.innerText = `Rs. ${dailyRec.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
     
-    if (remainingBudget <= 0) {
+    if (netAssets < unpaidMandatory) {
         elLimit.style.color = "var(--danger)";
-        elTip.innerText = "⚠️ You are over-budget! Try to minimize spending for the rest of the month.";
+        elTip.innerText = `⚠️ Caution! Your current assets (Rs. ${netAssets.toLocaleString()}) are less than your remaining obligations (Rs. ${unpaidMandatory.toLocaleString()}). Stop spending!`;
     } else {
         elLimit.style.color = "var(--accent-cyan)";
-        elTip.innerText = `You have Rs. ${remainingBudget.toLocaleString()} left for the next ${daysLeft} days. Don't worry! you've got this!`;
+        elTip.innerText = `After reserving your obligations, you have Rs. ${liquidAvailable.toLocaleString()} left for everything else this month. Don't worry! you've got this!`;
     }
 }
 

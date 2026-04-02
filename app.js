@@ -330,5 +330,21 @@ window.editTransaction = (id) => {
 };
 document.getElementById('open-settings').onclick = () => { document.getElementById('backend-url').value = backendUrl; document.getElementById('settings-overlay').classList.remove('hidden'); };
 document.getElementById('close-settings').onclick = () => document.getElementById('settings-overlay').classList.add('hidden');
-document.getElementById('save-settings').onclick = async () => { backendUrl = document.getElementById('backend-url').value.trim(); localStorage.setItem('card-tracker-backend', backendUrl); await syncToCloud(); document.getElementById('settings-overlay').classList.add('hidden'); };
+document.getElementById('save-settings').onclick = async () => {
+    const url = document.getElementById('backend-url').value.trim();
+    if (!url) return;
+    
+    backendUrl = url;
+    localStorage.setItem('card-tracker-backend', backendUrl);
+    
+    // IMPORTANT: When connecting a new device (like mobile), 
+    // Always PULL from the cloud first so you don't overwrite with empty data!
+    const success = await loadFromCloud();
+    if (!success) {
+        // If the cloud is empty, sync current local state up
+        await syncToCloud();
+    }
+    
+    document.getElementById('settings-overlay').classList.add('hidden');
+};
 document.getElementById('clear-data').onclick = () => { if(confirm("Wipe all data?")) { transactions = []; accounts = DEFAULT_ACCOUNTS; budgetPlans = []; saveToStorage(); } };

@@ -210,6 +210,23 @@ main {
     gap: 1rem;
 }
 
+.bud-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.25rem;
+}
+
+.remaining-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.remaining-label strong {
+    font-family: 'Space Grotesk', sans-serif;
+    margin-left: 2px;
+}
+
 .bud-header {
     display: flex;
     justify-content: space-between;

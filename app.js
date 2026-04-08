@@ -233,14 +233,25 @@ function renderBudgetTab(activeBudgets, monthExpenses) {
             
         const prog = bud.amount > 0 ? Math.min(100, (spentVal / bud.amount) * 100) : 0;
         const color = spentVal > bud.amount ? 'var(--danger)' : 'var(--success)';
+        const remaining = bud.amount - spentVal;
+        
         return `
         <div class="budget-card">
             <div class="bud-header">
                 <div class="bud-info"><h4>${bud.name}</h4><span>${bud.virtual ? '🔄 Recurring' : '📝 Monthly Specific'}</span></div>
-                <div class="bud-stats"><span class="bud-stat-val" style="color: ${color}">Rs. ${spentVal.toLocaleString()}</span><span class="bud-limit">of Rs. ${bud.amount.toLocaleString()}</span></div>
+                <div class="bud-stats">
+                    <span class="bud-stat-val" style="color: ${color}">Rs. ${spentVal.toLocaleString()}</span>
+                    <span class="bud-limit">of Rs. ${bud.amount.toLocaleString()}</span>
+                </div>
             </div>
             <div class="progress-bar"><div class="progress-fill" style="width: ${prog}%; background: ${color}"></div></div>
-            <div class="action-btns" style="justify-content: flex-end; margin-top: 0.5rem"><button onclick="deleteBudget('${bud.id}', '${bud.monthKey}')" class="delete-btn">🗑️</button></div>
+            <div class="bud-footer">
+                <span class="remaining-label" style="color: ${remaining < 0 ? 'var(--danger)' : 'var(--text-gray)'}">
+                    ${remaining >= 0 ? 'Remaining: ' : 'Overspent: '} 
+                    <strong>Rs. ${Math.abs(remaining).toLocaleString()}</strong>
+                </span>
+                <div class="action-btns"><button onclick="deleteBudget('${bud.id}', '${bud.monthKey}')" class="delete-btn">🗑️</button></div>
+            </div>
         </div>`;
     }).join('');
 }

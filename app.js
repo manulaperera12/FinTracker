@@ -146,19 +146,23 @@ function updateUI() {
         .filter(acc => acc.type === 'bank' || acc.type === 'cash')
         .reduce((sum, acc) => sum + (balances[acc.id] || 0), 0);
 
-    // Summary - TRANSFERS are excluded from Spending total
-    const totalSpentThisMonth = transactions
-        .filter(tx => tx.type === 'expense' && getMonthKey(new Date(tx.date)) === getMonthKey(now))
-        .reduce((sum, tx) => sum + tx.amount, 0);
-
+    // Summary - Calculate total spent this month on BUDGETED items vs ALL items
+    const monthTx = transactions.filter(tx => tx.type === 'expense' && getMonthKey(new Date(tx.date)) === getMonthKey(now));
     const activeBudgetsThisMonth = getActiveBudgets(getMonthKey(now));
+    
+    // totalSpentOnMandatory: Only expenses that match a budget goal (by ID or legacy description)
+    const totalSpentOnMandatory = monthTx.reduce((sum, tx) => {
+        const isBudgeted = tx.budgetId || activeBudgetsThisMonth.some(bud => tx.desc.toLowerCase().includes(bud.name.toLowerCase()));
+        return isBudgeted ? sum + tx.amount : sum;
+    }, 0);
+
     const totalPlannedObligations = activeBudgetsThisMonth.reduce((s, b) => s + b.amount, 0);
 
     document.getElementById('net-worth').innerText = `Rs. ${netWealth.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
     document.getElementById('liquid-cash').innerText = `Rs. ${liquidCash.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
 
     // Render Components
-    updateDailyGuide(totalPlannedObligations, totalSpentThisMonth, liquidCash);
+    updateDailyGuide(totalPlannedObligations, totalSpentOnMandatory, liquidCash);
     renderAccountCarousel(balances);
     renderBudgetTab(getActiveBudgets(mKey), transactions.filter(tx => tx.type === 'expense' && getMonthKey(new Date(tx.date)) === mKey));
     renderAccounts(balances);
@@ -222,7 +226,11 @@ function renderBudgetTab(activeBudgets, monthExpenses) {
     if (!list) return;
     if (activeBudgets.length === 0) { list.innerHTML = '<li class="empty-state">No monthly goal set.</li>'; return; }
     list.innerHTML = activeBudgets.map(bud => {
-        const spentVal = monthExpenses.filter(tx => tx.desc.toLowerCase().includes(bud.name.toLowerCase())).reduce((s, tx) => s + tx.amount, 0);
+        // Calculate spent value: Match by explicit budgetId OR fall back to legacy description matching
+        const spentVal = monthExpenses
+            .filter(tx => tx.budgetId === bud.id || (!tx.budgetId && tx.desc.toLowerCase().includes(bud.name.toLowerCase())))
+            .reduce((s, tx) => s + tx.amount, 0);
+            
         const prog = bud.amount > 0 ? Math.min(100, (spentVal / bud.amount) * 100) : 0;
         const color = spentVal > bud.amount ? 'var(--danger)' : 'var(--success)';
         return `
@@ -299,6 +307,18 @@ function updateDropdowns() {
         el.innerHTML = html;
         if (currentVal) el.value = currentVal;
     });
+
+    // Populate Budget Select
+    const budSelect = document.getElementById('budget-select');
+    if (budSelect) {
+        const currentVal = budSelect.value;
+        const mKey = getMonthKey(currentViewDate);
+        const activeBudgets = getActiveBudgets(mKey);
+        let html = '<option value="">None / General Expense</option>';
+        html += activeBudgets.map(b => `<option value="${b.id}">${b.name} (Goal: Rs. ${b.amount.toLocaleString()})</option>`).join('');
+        budSelect.innerHTML = html;
+        if (currentVal) budSelect.value = currentVal;
+    }
 }
 
 function updateCreditCycleInfo(cc) {
@@ -321,8 +341,12 @@ function updateCreditCycleInfo(cc) {
 
 // --- EVENTS ---
 document.getElementById('type').onchange = (e) => {
-    document.getElementById('group-to').classList.toggle('hidden', e.target.value !== 'transfer');
-    document.getElementById('group-from').querySelector('label').innerText = e.target.value === 'transfer' ? 'From Account' : 'Account';
+    const isTransfer = e.target.value === 'transfer';
+    const isExpense = e.target.value === 'expense';
+    
+    document.getElementById('group-to').classList.toggle('hidden', !isTransfer);
+    document.getElementById('group-budget').classList.toggle('hidden', !isExpense);
+    document.getElementById('group-from').querySelector('label').innerText = isTransfer ? 'From Account' : 'Account';
 };
 
 document.querySelectorAll('.tab-btn').forEach(btn => { btn.onclick = () => { document.querySelectorAll('.tab-btn, .tab-pane').forEach(el => el.classList.remove('active')); btn.classList.add('active'); document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active'); if (btn.dataset.tab === 'overview') updateUI();}; });
@@ -334,7 +358,14 @@ document.getElementById('daily-guide-section').onclick = () => {
     document.getElementById('coach-details').classList.toggle('hidden');
 };
 
-document.getElementById('quick-add-btn').onclick = () => { document.getElementById('modal-title').innerText = "New Record"; document.getElementById('edit-id').value = ""; document.getElementById('transaction-form').reset(); document.getElementById('group-to').classList.add('hidden'); document.getElementById('modal-overlay').classList.remove('hidden'); };
+document.getElementById('quick-add-btn').onclick = () => { 
+    document.getElementById('modal-title').innerText = "New Record"; 
+    document.getElementById('edit-id').value = ""; 
+    document.getElementById('transaction-form').reset(); 
+    document.getElementById('group-to').classList.add('hidden'); 
+    document.getElementById('group-budget').classList.remove('hidden'); // Default is expense
+    document.getElementById('modal-overlay').classList.remove('hidden'); 
+};
 document.getElementById('add-budget-btn').onclick = () => document.getElementById('budget-modal-overlay').classList.remove('hidden');
 document.getElementById('add-account-btn').onclick = () => { document.getElementById('acc-modal-title').innerText = "Add Account"; document.getElementById('edit-acc-id').value = ""; document.getElementById('account-form').reset(); document.getElementById('account-modal-overlay').classList.remove('hidden'); };
 document.getElementById('close-modal').onclick = () => document.getElementById('modal-overlay').classList.add('hidden');
@@ -345,7 +376,24 @@ document.getElementById('acc-type').onchange = (e) => document.getElementById('c
 // --- FORMS ---
 document.getElementById('budget-form').onsubmit = (e) => { e.preventDefault(); budgetPlans.push({ id: 'bud-' + Date.now(), name: document.getElementById('bud-name').value, amount: parseFloat(document.getElementById('bud-amount').value), monthKey: getMonthKey(currentViewDate), recurring: document.getElementById('bud-recurring').checked }); saveToStorage(); document.getElementById('budget-modal-overlay').classList.add('hidden'); };
 
-document.getElementById('transaction-form').onsubmit = (e) => { e.preventDefault(); const id = document.getElementById('edit-id').value; const tx = { id: id ? parseInt(id) : Date.now(), type: document.getElementById('type').value, accountId: document.getElementById('account-select').value, toAccountId: document.getElementById('account-to').value, amount: parseFloat(document.getElementById('amount').value), desc: document.getElementById('desc').value, date: id ? transactions.find(t => t.id == id).date : new Date().toISOString() }; if (id) transactions[transactions.findIndex(t => t.id == id)] = tx; else transactions.push(tx); saveToStorage(); document.getElementById('modal-overlay').classList.add('hidden'); };
+document.getElementById('transaction-form').onsubmit = (e) => { 
+    e.preventDefault(); 
+    const id = document.getElementById('edit-id').value; 
+    const tx = { 
+        id: id ? parseInt(id) : Date.now(), 
+        type: document.getElementById('type').value, 
+        accountId: document.getElementById('account-select').value, 
+        toAccountId: document.getElementById('account-to').value, 
+        budgetId: document.getElementById('budget-select').value,
+        amount: parseFloat(document.getElementById('amount').value), 
+        desc: document.getElementById('desc').value, 
+        date: id ? transactions.find(t => t.id == id).date : new Date().toISOString() 
+    }; 
+    if (id) transactions[transactions.findIndex(t => t.id == id)] = tx; 
+    else transactions.push(tx); 
+    saveToStorage(); 
+    document.getElementById('modal-overlay').classList.add('hidden'); 
+};
 
 document.getElementById('account-form').onsubmit = (e) => {
     e.preventDefault();
@@ -373,7 +421,32 @@ window.deleteBudget = (id, monthKey) => { if (confirm("Remove this goal?")) { co
 window.removeAccount = (id) => { if (confirm("Delete this account and transactions?")) { accounts = accounts.filter(a => a.id !== id); transactions = transactions.filter(t => t.accountId !== id && t.toAccountId !== id); saveToStorage(); } };
 window.editAccount = (id) => { const acc = accounts.find(a => a.id === id); if (!acc) return; document.getElementById('acc-modal-title').innerText = "Edit Account"; document.getElementById('edit-acc-id').value = acc.id; document.getElementById('acc-name').value = acc.name; document.getElementById('acc-type').value = acc.type; document.getElementById('acc-balance').value = acc.balance; document.getElementById('billing-day').value = acc.billingDay || 20; document.getElementById('credit-fields').classList.toggle('hidden', acc.type !== 'credit'); document.getElementById('account-modal-overlay').classList.remove('hidden'); };
 window.removeTransaction = (id) => { if (confirm("Delete?")) { transactions = transactions.filter(t => t.id != id); saveToStorage(); } };
-window.editTransaction = (id) => { const tx = transactions.find(t => t.id == id); if (!tx) return; document.getElementById('modal-title').innerText = "Edit Record"; document.getElementById('edit-id').value = tx.id; document.getElementById('type').value = tx.type; document.getElementById('account-select').value = tx.accountId; if (tx.type === 'transfer') { document.getElementById('group-to').classList.remove('hidden'); document.getElementById('account-to').value = tx.toAccountId; } else { document.getElementById('group-to').classList.add('hidden'); } document.getElementById('amount').value = tx.amount; document.getElementById('desc').value = tx.desc; document.getElementById('modal-overlay').classList.remove('hidden'); };
+window.editTransaction = (id) => { 
+    const tx = transactions.find(t => t.id == id); 
+    if (!tx) return; 
+    document.getElementById('modal-title').innerText = "Edit Record"; 
+    document.getElementById('edit-id').value = tx.id; 
+    document.getElementById('type').value = tx.type; 
+    document.getElementById('account-select').value = tx.accountId; 
+    
+    if (tx.type === 'transfer') { 
+        document.getElementById('group-to').classList.remove('hidden'); 
+        document.getElementById('account-to').value = tx.toAccountId; 
+    } else { 
+        document.getElementById('group-to').classList.add('hidden'); 
+    } 
+
+    if (tx.type === 'expense') {
+        document.getElementById('group-budget').classList.remove('hidden');
+        document.getElementById('budget-select').value = tx.budgetId || "";
+    } else {
+        document.getElementById('group-budget').classList.add('hidden');
+    }
+
+    document.getElementById('amount').value = tx.amount; 
+    document.getElementById('desc').value = tx.desc; 
+    document.getElementById('modal-overlay').classList.remove('hidden'); 
+};
 document.getElementById('open-settings').onclick = () => { document.getElementById('backend-url').value = backendUrl; document.getElementById('settings-overlay').classList.remove('hidden'); };
 document.getElementById('close-settings').onclick = () => document.getElementById('settings-overlay').classList.add('hidden');
 document.getElementById('save-settings').onclick = async () => { backendUrl = document.getElementById('backend-url').value.trim(); localStorage.setItem('card-tracker-backend', backendUrl); await loadFromCloud(); if (!transactions.length) await syncToCloud(); document.getElementById('settings-overlay').classList.add('hidden'); };

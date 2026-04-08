@@ -157,12 +157,14 @@ function updateUI() {
     }, 0);
 
     const totalPlannedObligations = activeBudgetsThisMonth.reduce((s, b) => s + b.amount, 0);
+    const totalSpentThisMonth = monthTx.reduce((s, tx) => s + tx.amount, 0);
+    const totalOtherExpenses = totalSpentThisMonth - totalSpentOnMandatory;
 
     document.getElementById('net-worth').innerText = `Rs. ${netWealth.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
     document.getElementById('liquid-cash').innerText = `Rs. ${liquidCash.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
 
     // Render Components
-    updateDailyGuide(totalPlannedObligations, totalSpentOnMandatory, liquidCash);
+    updateDailyGuide(totalPlannedObligations, totalSpentOnMandatory, liquidCash, totalOtherExpenses);
     renderAccountCarousel(balances);
     renderBudgetTab(getActiveBudgets(mKey), transactions.filter(tx => tx.type === 'expense' && getMonthKey(new Date(tx.date)) === mKey));
     renderAccounts(balances);
@@ -176,7 +178,7 @@ function updateUI() {
     else { cycleSection.classList.add('hidden'); }
 }
 
-function updateDailyGuide(totalMandatory, totalSpentOnMandatory, liquidCash) {
+function updateDailyGuide(totalMandatory, totalSpentOnMandatory, liquidCash, totalOther = 0) {
     const elLimit = document.getElementById('daily-limit');
     const elTip = document.getElementById('coach-tip');
     if (!elLimit || !elTip) return;
@@ -198,6 +200,7 @@ function updateDailyGuide(totalMandatory, totalSpentOnMandatory, liquidCash) {
     const updateEl = (id, text) => { const el = document.getElementById(id); if (el) el.innerText = text; };
     updateEl('math-planned', `Rs. ${(totalMandatory || 0).toLocaleString()}`);
     updateEl('math-paid', `- Rs. ${(totalSpentOnMandatory || 0).toLocaleString()}`);
+    updateEl('math-other', `Rs. ${(totalOther || 0).toLocaleString()}`);
     updateEl('math-bill-res', `Rs. ${(remainingObligations || 0).toLocaleString()}`);
     updateEl('math-liquid', `Rs. ${(liquidCash || 0).toLocaleString()}`);
     updateEl('math-pool', `Rs. ${(safeResidual || 0).toLocaleString()}`);

@@ -148,7 +148,7 @@ function updateUI() {
         .reduce((sum, acc) => sum + (balances[acc.id] || 0), 0);
 
     // Summary - Calculate total spent this month on BUDGETED items vs ALL items
-    const monthTx = transactions.filter(tx => tx.type === 'expense' && getMonthKey(new Date(tx.date)) === getMonthKey(now));
+    const monthTx = transactions.filter(tx => (tx.type === 'expense' || (tx.type === 'transfer' && tx.budgetId)) && getMonthKey(new Date(tx.date)) === getMonthKey(now));
     const activeBudgetsThisMonth = getActiveBudgets(getMonthKey(now));
     
     // totalSpentOnMandatory: Only expenses that match a budget goal (by ID or legacy description)
@@ -167,7 +167,11 @@ function updateUI() {
     // Render Components
     updateDailyGuide(totalPlannedObligations, totalSpentOnMandatory, liquidCash, totalOtherExpenses);
     renderAccountCarousel(balances);
-    renderBudgetTab(getActiveBudgets(mKey), transactions.filter(tx => tx.type === 'expense' && getMonthKey(new Date(tx.date)) === mKey));
+    
+    // Include transfers in the budget tab filter if they have a budgetId
+    const budgetMonthTx = transactions.filter(tx => (tx.type === 'expense' || (tx.type === 'transfer' && tx.budgetId)) && getMonthKey(new Date(tx.date)) === mKey);
+    renderBudgetTab(getActiveBudgets(mKey), budgetMonthTx);
+    
     renderAccounts(balances);
     renderLedger();
     updateDropdowns();
@@ -234,9 +238,9 @@ function renderBudgetTab(activeBudgets, monthExpenses) {
     if (!list) return;
     if (activeBudgets.length === 0) { list.innerHTML = '<li class="empty-state">No monthly goal set.</li>'; return; }
     list.innerHTML = activeBudgets.map(bud => {
-        // Calculate spent value: Match by explicit budgetId OR fall back to legacy description matching
+        // Calculate spent value: Match by explicit budgetId OR fall back to legacy description matching for expenses
         const spentVal = monthExpenses
-            .filter(tx => tx.budgetId === bud.id || (!tx.budgetId && tx.desc && tx.desc.toLowerCase().includes((bud.name || '').toLowerCase())))
+            .filter(tx => tx.budgetId === bud.id || (!tx.budgetId && tx.type === 'expense' && tx.desc && tx.desc.toLowerCase().includes((bud.name || '').toLowerCase())))
             .reduce((s, tx) => s + tx.amount, 0);
             
         const prog = bud.amount > 0 ? Math.min(100, (spentVal / bud.amount) * 100) : 0;
@@ -371,7 +375,7 @@ document.getElementById('type').onchange = (e) => {
     const isExpense = e.target.value === 'expense';
     
     document.getElementById('group-to').classList.toggle('hidden', !isTransfer);
-    document.getElementById('group-budget').classList.toggle('hidden', !isExpense);
+    document.getElementById('group-budget').classList.toggle('hidden', !isExpense && !isTransfer);
     document.getElementById('group-from').querySelector('label').innerText = isTransfer ? 'From Account' : 'Account';
 };
 
@@ -467,7 +471,7 @@ window.editTransaction = (id) => {
         document.getElementById('group-to').classList.add('hidden'); 
     } 
 
-    if (tx.type === 'expense') {
+    if (tx.type === 'expense' || tx.type === 'transfer') {
         document.getElementById('group-budget').classList.remove('hidden');
         document.getElementById('budget-select').value = tx.budgetId || "";
     } else {

@@ -20,6 +20,7 @@ let accounts = JSON.parse(localStorage.getItem('fintracker-accounts')) || DEFAUL
 let budgetPlans = JSON.parse(localStorage.getItem('fintracker-budgets')) || [];
 let backendUrl = localStorage.getItem('card-tracker-backend') || '';
 let currentViewDate = new Date();
+let showAllRecent = false;
 
 function getMonthKey(date) {
     return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
@@ -288,8 +289,15 @@ function renderLedger() {
     // Sort transactions reverse-chronologically
     const sortedAll = [...transactions].reverse();
     
-    // Recent activity (Dashboard) - ALWAYS SHOW ALL
-    renderTransactionList('recent-transaction-list', sortedAll.slice(0, 8));
+    // Recent activity (Dashboard) - Toggle between top 8 and ALL
+    const limit = showAllRecent ? sortedAll.length : 8;
+    renderTransactionList('recent-transaction-list', sortedAll.slice(0, limit));
+
+    // Update button text
+    const showMoreBtn = document.getElementById('show-more-recent');
+    if (showMoreBtn) {
+        showMoreBtn.innerText = showAllRecent ? "Show Less ↑" : "Show More ↓";
+    }
     
     // Ledger List (Filtered)
     let filteredData = sortedAll;
@@ -377,8 +385,8 @@ document.getElementById('daily-guide-section').onclick = () => {
 };
 
 document.getElementById('show-more-recent').onclick = () => {
-    const ledgerTab = document.querySelector('.tab-btn[data-tab="ledger"]');
-    if (ledgerTab) ledgerTab.click();
+    showAllRecent = !showAllRecent;
+    renderLedger();
 };
 
 document.getElementById('quick-add-btn').onclick = () => { 

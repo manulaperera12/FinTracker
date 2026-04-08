@@ -626,6 +626,8 @@ main {
 .math-step span:last-child { color: var(--text-white); font-family: 'Space Grotesk', sans-serif; font-weight: 500; }
 .math-step.primary { font-size: 0.95rem; font-weight: 600; margin-top: 0.25rem; }
 .math-step.primary span:last-child { color: var(--accent-cyan); }
+.math-step.result { margin-top: 0.25rem; font-weight: 700; font-size: 1rem; }
+.math-step.result span:last-child { color: var(--accent-cyan); text-shadow: 0 0 10px rgba(34, 211, 238, 0.3); }
 .math-step.sub { opacity: 0.7; font-size: 0.75rem; }
 
 .math-divider { height: 1px; background: rgba(255, 255, 255, 0.1); width: 100%; margin: 0.25rem 0; }

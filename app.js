@@ -195,10 +195,13 @@ function updateDailyGuide(totalMandatory, totalSpentOnMandatory, liquidCash) {
     elLimit.innerText = `Rs. ${dailyRec.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
     
     // Update Detailed Math
+    document.getElementById('math-planned').innerText = `Rs. ${totalMandatory.toLocaleString()}`;
+    document.getElementById('math-paid').innerText = `- Rs. ${totalSpentOnMandatory.toLocaleString()}`;
+    document.getElementById('math-bill-res').innerText = `Rs. ${remainingObligations.toLocaleString()}`;
     document.getElementById('math-liquid').innerText = `Rs. ${liquidCash.toLocaleString()}`;
-    document.getElementById('math-bills').innerText = `- Rs. ${remainingObligations.toLocaleString()}`;
     document.getElementById('math-pool').innerText = `Rs. ${safeResidual.toLocaleString()}`;
     document.getElementById('math-days').innerText = `${daysLeft} Days Left`;
+    document.getElementById('math-final-calc').innerText = `Rs. ${dailyRec.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
     if (liquidCash < remainingObligations) {
         elLimit.style.color = "var(--danger)";

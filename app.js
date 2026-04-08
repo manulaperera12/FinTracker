@@ -376,6 +376,11 @@ document.getElementById('daily-guide-section').onclick = () => {
     document.getElementById('coach-details').classList.toggle('hidden');
 };
 
+document.getElementById('show-more-recent').onclick = () => {
+    const ledgerTab = document.querySelector('.tab-btn[data-tab="ledger"]');
+    if (ledgerTab) ledgerTab.click();
+};
+
 document.getElementById('quick-add-btn').onclick = () => { 
     document.getElementById('modal-title').innerText = "New Record"; 
     document.getElementById('edit-id').value = ""; 

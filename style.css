@@ -445,6 +445,31 @@ main {
 
 .btn-primary:active { transform: scale(0.96); }
 
+.card-footer {
+    display: flex;
+    justify-content: center;
+    padding-top: 1rem;
+    margin-top: 0.5rem;
+    border-top: 1px solid var(--glass-border);
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    color: var(--accent-blue);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+}
+
+.btn-link:hover {
+    color: var(--accent-cyan);
+    background: rgba(56, 189, 248, 0.05);
+}
+
 .ledger-totals {
     display: flex;
     justify-content: space-between;

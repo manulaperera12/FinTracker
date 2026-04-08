@@ -152,7 +152,7 @@ function updateUI() {
     
     // totalSpentOnMandatory: Only expenses that match a budget goal (by ID or legacy description)
     const totalSpentOnMandatory = monthTx.reduce((sum, tx) => {
-        const isBudgeted = tx.budgetId || activeBudgetsThisMonth.some(bud => tx.desc.toLowerCase().includes(bud.name.toLowerCase()));
+        const isBudgeted = tx.budgetId || (tx.desc && activeBudgetsThisMonth.some(bud => tx.desc.toLowerCase().includes((bud.name || '').toLowerCase())));
         return isBudgeted ? sum + tx.amount : sum;
     }, 0);
 
@@ -194,14 +194,15 @@ function updateDailyGuide(totalMandatory, totalSpentOnMandatory, liquidCash) {
 
     elLimit.innerText = `Rs. ${dailyRec.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
     
-    // Update Detailed Math
-    document.getElementById('math-planned').innerText = `Rs. ${totalMandatory.toLocaleString()}`;
-    document.getElementById('math-paid').innerText = `- Rs. ${totalSpentOnMandatory.toLocaleString()}`;
-    document.getElementById('math-bill-res').innerText = `Rs. ${remainingObligations.toLocaleString()}`;
-    document.getElementById('math-liquid').innerText = `Rs. ${liquidCash.toLocaleString()}`;
-    document.getElementById('math-pool').innerText = `Rs. ${safeResidual.toLocaleString()}`;
-    document.getElementById('math-days').innerText = `${daysLeft} Days Left`;
-    document.getElementById('math-final-calc').innerText = `Rs. ${dailyRec.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+    // Update Detailed Math (with safe checks)
+    const updateEl = (id, text) => { const el = document.getElementById(id); if (el) el.innerText = text; };
+    updateEl('math-planned', `Rs. ${(totalMandatory || 0).toLocaleString()}`);
+    updateEl('math-paid', `- Rs. ${(totalSpentOnMandatory || 0).toLocaleString()}`);
+    updateEl('math-bill-res', `Rs. ${(remainingObligations || 0).toLocaleString()}`);
+    updateEl('math-liquid', `Rs. ${(liquidCash || 0).toLocaleString()}`);
+    updateEl('math-pool', `Rs. ${(safeResidual || 0).toLocaleString()}`);
+    updateEl('math-days', `${daysLeft} Days Left`);
+    updateEl('math-final-calc', `Rs. ${(dailyRec || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`);
 
     if (liquidCash < remainingObligations) {
         elLimit.style.color = "var(--danger)";
@@ -231,7 +232,7 @@ function renderBudgetTab(activeBudgets, monthExpenses) {
     list.innerHTML = activeBudgets.map(bud => {
         // Calculate spent value: Match by explicit budgetId OR fall back to legacy description matching
         const spentVal = monthExpenses
-            .filter(tx => tx.budgetId === bud.id || (!tx.budgetId && tx.desc.toLowerCase().includes(bud.name.toLowerCase())))
+            .filter(tx => tx.budgetId === bud.id || (!tx.budgetId && tx.desc && tx.desc.toLowerCase().includes((bud.name || '').toLowerCase())))
             .reduce((s, tx) => s + tx.amount, 0);
             
         const prog = bud.amount > 0 ? Math.min(100, (spentVal / bud.amount) * 100) : 0;
